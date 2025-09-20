@@ -106,26 +106,49 @@ The application follows a **three-tier architecture**:
 - Encrypted API key storage using KMS-managed system keys
 - Thread, message, and user data management with cursor-based pagination
 
-### Runtime Environment - Cloud Run
+---
 
-**The Cloud Run container image contains:**
-- The backend Node.js app
-- The Ollama binary or a small supervisor script that can spawn the Ollama process on demand
-- Model files may be packaged into the image or downloaded at runtime into the container's ephemeral filesystem (see tradeoffs below)
+## 4 — Infrastructure Setup
 
-**When Cloud Run instance starts**, the container can run a process manager that listens for HTTP requests and can spawn the Ollama process in the same container as needed (or load it pre-warmed).
+### Backend Infrastructure
 
-**Model loading behavior:**
-- Ollama / model is not necessarily pre-loaded at container start. A dedicated API `/api/models/:modelId/load` triggers loading of the model into local Ollama runtime (download or attach model artifacts and start the process)
-- Each Cloud Run instance must load the model when required — model load is instance-local
+- **Deployment Platform**: Google Cloud Run (containerized, auto-scaling)
+- **Container Image**: Docker image with Node.js runtime and Express server
+- **Resource Configuration**: CPU and memory sized for concurrent request handling
+- **Scaling**: Auto-scaling with scale-to-zero capability
+- **Background Jobs**: Worker processes run within the same container for summarization and title generation
 
-**Tradeoffs & constraints:**
-- Cloud Run instances are ephemeral and may scale-to-zero. Model load latency + memory usage must be accepted; each instance that handles Gemma will pay that cost
-- Large model files increase image size; consider bundling a small Gemma model or fetching model artifacts from Cloud Storage at startup. If model size or GPU is required, note Cloud Run may not be ideal — but per requirement we keep Ollama in same container. Document resource sizing carefully (CPU, memory)
+### Ollama Runtime (Local Model)
 
-**Background jobs:**
-- Summarization and title-generation jobs are executed inside the same container by a worker process / job endpoint (invoked via Cloud Tasks or via polling DB). The worker picks up tasks persisted in DB and processes them
-- Use Cloud Tasks to enqueue summarization jobs and deliver them to the Cloud Run service URL; the worker endpoint processes and marks tasks done. (This keeps jobs reliable while running inside the same container.)
+**Container Configuration:**
+- The Cloud Run container image includes the Ollama binary or supervisor script
+- Model files can be packaged in the image or downloaded at runtime to ephemeral filesystem
+
+**Model Loading Behavior:**
+- Models are not pre-loaded at container start
+- API endpoint `/api/models/:modelId/load` triggers model loading into Ollama runtime
+- Each Cloud Run instance must load the model independently (instance-local)
+
+**Tradeoffs & Constraints:**
+- Cloud Run instances are ephemeral and may scale-to-zero
+- Model load latency and memory usage must be accepted per instance
+- Large model files increase image size; consider fetching from Cloud Storage at startup
+- Document resource sizing carefully (CPU, memory requirements)
+
+### Frontend Infrastructure
+
+- **Hosting Platform**: Firebase Hosting with global CDN distribution
+- **Build**: Vite-bundled React SPA with optimized production builds
+- **Deployment**: Automated via GitHub Actions on merge to main
+- **Static Assets**: Cached at edge locations for low latency
+
+### Database Infrastructure
+
+- **Production**: Firebase Realtime Database with automatic scaling
+- **Development**: Firebase Emulator Suite for local testing
+- **Data Persistence**: Real-time sync with offline support
+- **Security**: Encrypted storage for sensitive data (API keys)
+- **Backup Strategy**: Regular automated backups via Firebase console
 
 ---
 
