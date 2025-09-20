@@ -1,0 +1,404 @@
+Final Design — single-container Cloud Run backend + Vite/React frontend (two repos)
+
+⸻
+
+0 — Confirmed decisions (single place)
+	•	Two repos: backend (Node.js + TypeScript + Express) and frontend (Vite + React).
+	•	Backend and Ollama (Gemma 2 2B) will run together inside the same Cloud Run Docker container; Ollama runs as a separate process started by the container.
+	•	Storage: primary is Firebase Realtime Database; local/dev alternative: MongoDB (dev mode). DB provider selected by env var.
+	•	Per-user API keys (Claude, Google, ChatGPT) are stored encrypted in DB (encrypted with system key stored in Secret Manager/KMS).
+	•	No user registration/reset API: an admin Cloud Function and bundled CLI utility to create/update users (password hash).
+	•	Model config (available models, mapping to which API-key type, and allowed parameter constraints) is stored in DB and exposed via API for the frontend.
+	•	Summarization & background jobs run inside the same backend container (via internal job worker triggered by queues in DB or Cloud Tasks invoking the same container endpoint).
+	•	All CI/CD done using GitHub Actions.
+	•	Docker images pushed to GitHub Container Registry (GHCR). Deploy to Cloud Run from GHCR.
+	•	Frontend is hosted on Firebase Hosting and deployed via GitHub Actions.
+	•	Implementation approach: TDD (tests drive implementation). Postman/Newman integration tests executed in build stage using in-memory DB / firebase emulator.
+	•	No Redis or external caching in initial design.
+
+⸻
+
+1 — Architectural overview & runtime implications
+
+How it runs on Cloud Run
+	•	The Cloud Run container image contains:
+	•	The backend Node.js app.
+	•	The Ollama binary or a small supervisor script that can spawn the Ollama process on demand.
+	•	Model files may be packaged into the image or downloaded at runtime into the container’s ephemeral filesystem (see tradeoffs below).
+	•	When Cloud Run instance starts, the container can run a process manager that listens for HTTP requests and can spawn the Ollama process in the same container as needed (or load it pre-warmed).
+	•	Model loading behavior:
+	•	Ollama / model is not necessarily pre-loaded at container start. A dedicated API /api/models/:modelId/load triggers loading of the model into local Ollama runtime (download or attach model artifacts and start the process).
+	•	Each Cloud Run instance must load the model when required — model load is instance-local.
+	•	Tradeoffs & constraints:
+	•	Cloud Run instances are ephemeral and may scale-to-zero. Model load latency + memory usage must be accepted; each instance that handles Gemma will pay that cost.
+	•	Large model files increase image size; consider bundling a small Gemma model or fetching model artifacts from Cloud Storage at startup. If model size or GPU is required, note Cloud Run may not be ideal — but per requirement we keep Ollama in same container. Document resource sizing carefully (CPU, memory).
+	•	Background jobs:
+	•	Summarization and title-generation jobs are executed inside the same container by a worker process / job endpoint (invoked via Cloud Tasks or via polling DB). The worker picks up tasks persisted in DB and processes them.
+	•	Use Cloud Tasks to enqueue summarization jobs and deliver them to the Cloud Run service URL; the worker endpoint processes and marks tasks done. (This keeps jobs reliable while running inside the same container.)
+
+⸻
+
+2 — Data model & persistence
+
+Top-level DB layout (Firebase JSON / Mongo collections)
+	•	users collection (or node): user profile, pwd hash, display data, encrypted API keys, default model settings.
+	•	threads collection:
+	•	id, user_id, title, created_at, updated_at, meta…
+	•	models (dictionary or separate collection reference): for each supported model id, there is model-specific metadata (e.g., modelId, loaded_status, last_summary, updated_at).
+	•	messages collection (separate collection):
+	•	Each message: id, thread_id, model_id, role (user|assistant|system), content, tokens, status (partial|complete|failed), created_at, updated_at.
+	•	Pagination-friendly (indexed by thread_id + created_at).
+	•	models_config collection (persisted model catalog):
+	•	Each model: modelId, provider (ollama|claude|google|openai), displayName, apiKeyType (which user API key to use), temperatureOptions (allowed values or min/max/step or enumerated options), maxContextTokens, notes.
+	•	jobs collection (background tasks):
+	•	Summarize and title jobs: jobId, type (summarize/title-gen), thread_id, model_id, payload, status, retries, created_at, updated_at.
+	•	system node:
+	•	version metadata baked into the container; app_start_time etc. (but versions are packaged into the build — not written to DB by CI).
+
+DB provider abstraction
+	•	Backend must implement a data-layer abstraction to switch between Firebase Realtime DB and MongoDB based on DB_PROVIDER env var.
+	•	Migration scripts must support both backends (provide a unified migration API that runs JS migration files and can operate on either provider).
+
+⸻
+
+3 — Model catalog + per-model constraints & UI implications
+	•	Store full model catalog in models_config in DB. Example fields relevant to UI:
+	•	modelId: e.g., gemma-2b-local, claude-opus-4.1, gpt-4o.
+	•	provider: ollama|claude|google|openai
+	•	apiKeyType: user_claude, user_google, user_openai, or none (local)
+	•	temperatureType: range (min, max, step) or enum (e.g., [0,1]) — used by UI to render slider or fixed options.
+	•	requires_local_load: boolean (true for local Gemma).
+	•	display_name, priority, notes.
+
+UI behavior:
+	•	Model dropdown is populated from the /api/models API (reads models_config).
+	•	If temperatureType is enum with [0,1] model, the UI shows a dropdown or toggle instead of a continuous slider.
+	•	For local Gemma (requires_local_load=true), UI shows load status next to model and a “Load model” button when not loaded. On load, show progress / status.
+	•	If user hasn’t provided a required API key for selected provider, the model appears disabled with a CTA to set API key in profile.
+
+⸻
+
+4 — API endpoints (finalized surface)
+
+Auth & meta
+	•	POST /api/login — body { username, password } → returns JWT set as httpOnly cookie (or token).
+	•	POST /api/logout — clears cookie.
+	•	GET /api/health — Public. Returns JSON with: status, uptime, db (OK/ERR), db_details, ollama (not_loaded | loading | loaded | error), internal_api_ok.
+	•	GET /api/version — Auth required. Return container baked version info { version, build_time, commit }.
+
+Profile & API keys
+	•	GET /api/profile — Auth required. Returns profile metadata (no raw keys).
+	•	PATCH /api/profile — update profile fields (display_name, system_prompt, default_model, default_temp).
+	•	POST /api/profile/api-keys — Auth required. Body { claude?, google?, openai? } — backend encrypts & stores.
+
+Models & catalog
+	•	GET /api/models — Auth required. Return model catalog from DB.
+	•	GET /api/models/:modelId/status — Auth required. Returns loaded_status and other runtime metrics for local model (if applicable).
+	•	POST /api/models/:modelId/load — Auth required. Triggers local Ollama load for gemma-2b and returns job id / immediate status. Will stream status updates via SSE or return job id to poll.
+
+Threads & messages
+	•	POST /api/threads — create thread { title? }.
+	•	GET /api/threads — Auth required. Supports q (search), limit, cursor (cursor-based pagination). Return summary, last message snippet, per-model indicators.
+	•	GET /api/threads/:threadId — metadata for thread (no message payloads by default).
+	•	DELETE /api/threads/:threadId — Auth required.
+	•	GET /api/threads/:threadId/models/:modelId/messages — Auth required. Supports limit, cursor (pagination), returns messages ordered by created_at.
+	•	POST /api/threads/:threadId/models/:modelId/messages — Auth required. Body { content, temperature?, stream?: boolean }. Behavior:
+	•	Save user message.
+	•	Build prompt using user system prompt + model-specific thread summary + recent messages under token budget.
+	•	Call model (local Ollama if ollama provider; otherwise provider using decrypted user API key).
+	•	If stream=true, return SSE stream of tokens; else wait for final reply.
+	•	Save assistant message as partial then complete.
+	•	Enqueue summarization job for that (thread,model).
+	•	PATCH /api/threads/:threadId/title — auth required update title.
+	•	POST /api/threads/:threadId/models/:modelId/summarize — internal endpoint to force summary update (invoked by worker/Cloud Tasks or admin).
+
+Admin & utilities (invoked as Cloud Function / CLI)
+	•	Cloud Function createOrUpdateUser — accepts username, password , optional display_name — writes hashed passwd to DB.
+	•	CLI scripts/add-user for local dev (same behavior).
+
+⸻
+
+5 — Health check details (UI-visible)
+	•	/api/health returns:
+	•	service: ok|degraded|down
+	•	uptime_seconds
+	•	db: { ok: true/false, provider: firebase|mongodb, latency_ms }
+	•	ollama: { status: not_loaded|loading|loaded|error, model: gemma-2b, progress?: 0..100 }
+	•	internal_api: { status: ok }
+	•	Frontend shows status near the version in topbar with a refresh button that calls /api/health and updates UI.
+
+⸻
+
+6 — Model loading / Ollama lifecycle & UI handling
+
+API behavior
+	•	POST /api/models/gemma-2b/load:
+	•	If model already loaded on this instance → return 200 with loaded=true.
+	•	If not loaded:
+	•	Start loader (spawn Ollama process if not running; download model artifacts if needed).
+	•	Record status in DB models_config[gemma-2b].runtime_status (or a per-instance status store — we may store only global status plus instance-specific ephemeral status).
+	•	Return job id and initial status, or keep connection open and stream progress updates.
+	•	GET /api/models/gemma-2b/status:
+	•	Returns current status and estimated readiness.
+	•	Loader implementation:
+	•	Either spawn ollama as a child process in container or call the ollama binary.
+	•	Keep an internal process supervisor in container to restart on failure.
+	•	Expose process logs to the streaming SSE so UI can display progress if possible.
+	•	UI:
+	•	Selecting Gemma model triggers GET models/:id/status and shows loading | loaded | not_loaded.
+	•	If not_loaded, show a “Load” button. On click call POST /api/models/:id/load.
+	•	Display progress bar if backend returns progress updates; otherwise show loading spinner and a loaded indicator when done.
+
+Notes on scaling & cost
+	•	Each new Cloud Run instance must load local model on demand. Document cost + latency. This is acceptable per requirement but needs planning for instance sizing and concurrency settings (e.g., set concurrency=1 for model-heavy instances or configure memory accordingly).
+
+⸻
+
+7 — Prompt construction, context & summarization
+
+Prompt assembly (per message)
+	1.	Fetch user.profile.system_prompt.
+	2.	Fetch thread.models[modelId].last_summary (if present).
+	3.	Fetch most recent messages for the (thread,model) in reverse chronological order until the configured CONTEXT_TOKEN_BUDGET.
+	4.	Append the new user message.
+	5.	Send to model with streaming enabled if requested.
+	6.	After assistant reply completes, create a summarization job entry in DB pointing to threadId, modelId for worker to process.
+
+Summarizer
+	•	Worker (runs inside same container) picks up summarization jobs (via Cloud Tasks webhook or DB polling). It calls model with summarization prompt and writes last_summary for the (thread,model) node.
+	•	Summaries are ~300–700 tokens per requirement.
+
+⸻
+
+8 — Pagination & frontend lazy-load
+	•	All listing endpoints support cursor-based pagination:
+	•	Request: GET /api/threads?limit=20&cursor=<cursor>.
+	•	Response: { items: [...], nextCursor: "abc", hasMore: true }.
+	•	Messages endpoint supports limit and cursor for infinite scroll. Frontend uses intersection observer to fetch next page on scroll.
+	•	Search in GET /api/threads?q=... implemented server-side (title + last_summary).
+
+⸻
+
+9 — Testing strategy (TDD + integration)
+	•	Unit tests (run in CI):
+	•	Prompt builder, token estimation, encryption utilities, small service functions.
+	•	Use Jest (Node) and run in CI.
+	•	Integration tests:
+	•	Postman collection (or Newman) that exercises auth, thread creation, message flow, summarization trigger, and health endpoints.
+	•	These integration tests are executed during CI build stage:
+	•	Start backend in test mode inside the job (use npm start:test), connecting to an in-memory DB:
+	•	For MongoDB: use mongodb-memory-server.
+	•	For Firebase: use Firebase Emulator Suite or mock DB adapter (in-memory implementation) to avoid external dependency.
+	•	Run Newman (postman) collection against the started server.
+	•	E2E (separate pipeline):
+	•	Playwright/Cypress to run a small happy-path with mocked or test backend.
+	•	TDD workflow:
+	•	Developers write failing tests (unit or integration) then implement code to make tests pass.
+	•	CI ensures no regression by running unit + integration tests before build/publish.
+
+⸻
+
+10 — CI/CD (GitHub Actions) — finalized flow
+
+Common points
+	•	Trigger: push to main → create a release tag (default patch bump) and start pipeline OR workflow_dispatch to allow manual bump major/minor.
+	•	Tagging: vMAJOR.MINOR.PATCH created by GH Actions earlier in the workflow.
+	•	Secrets required in GitHub Actions:
+	•	GHCR_PAT or GITHUB_TOKEN for GHCR push.
+	•	GCP_SA_KEY or use GitHub Workload Identity / OIDC + service account for Cloud Run deploy.
+	•	FIREBASE_TOKEN for frontend deploy.
+	•	SECRET_MANAGER_KEY details for test and deploy if needed to decrypt test system key.
+
+Backend workflow (merge->main)
+	1.	Checkout repo.
+	2.	Bump version (default patch) and create tag vX.Y.Z (or accept provided tag).
+	3.	Install deps, run linter.
+	4.	Run unit tests.
+	5.	Start backend in test mode with in-memory DB (mock firebase or mongodb-memory-server).
+	6.	Run Newman Postman integration tests against started test server.
+	7.	Build Docker image with --build-arg VERSION=${VERSION} and label.
+	8.	Push to GHCR (ghcr.io/org/backend:${VERSION}).
+	9.	Deploy Cloud Run service referencing GHCR image (gcloud auth with SA or via OIDC).
+	10.	On success, publish GitHub Release with notes and artifacts as needed.
+
+Frontend workflow (merge->main)
+	1.	Checkout repo.
+	2.	Bump version (independent repo) default patch and create tag.
+	3.	Install deps, lint, run unit tests.
+	4.	Start backend-mock or backend-stub as needed for integration tests if required.
+	5.	Build vite with VITE_APP_VERSION=${VERSION} env var.
+	6.	Run any automated UI integration tests against built output (optional).
+	7.	Deploy to Firebase Hosting using firebase deploy with FIREBASE_TOKEN.
+	8.	Publish GitHub Release.
+
+Note: Integration tests should run before build/publish steps to prevent releasing broken code.
+
+⸻
+
+11 — Migration scripts & DB priming
+	•	Provide a migrations/ folder with numbered migration files (JS) that run in sequence.
+	•	Migration runner executes at build or on startup (controlled via env var RUN_MIGRATIONS=true) and can:
+	•	Create initial models_config entries.
+	•	Create default system nodes.
+	•	Create seed data for local dev.
+	•	Support commands:
+	•	migrate:up, migrate:down, migrate:status.
+	•	For Firebase, use an adapter that applies changes safely (idempotent operations), and for Mongo use migration tool (e.g., migrate-mongo or standalone runner).
+	•	On system start with RUN_MIGRATIONS=true, the backend runs pending migrations before listening to requests.
+
+⸻
+
+12 — Security & Hardening checklist
+	•	Authentication:
+	•	JWT tokens with strong signing key stored in Secret Manager (rotate periodically).
+	•	Use httpOnly + Secure cookies for auth by default.
+	•	Encryption:
+	•	Encrypt per-user API keys before storing in DB using KMS-managed system key.
+	•	Network:
+	•	Limit inbound for Cloud Run via IAM; Cloud Run private egress to access other systems.
+	•	Input validation & Sanitization:
+	•	Sanitize Markdown rendered on frontend and server. Strip dangerous tags and attributes.
+	•	Validate request payloads thoroughly; use schema validation (Zod/Joi).
+	•	Rate limiting:
+	•	Implement per-user and per-IP rate limits in backend (in-memory limiter for now).
+	•	Least-privilege:
+	•	Service accounts for Cloud Run have minimal permissions (only Firebase Admin, KMS decrypt if necessary).
+	•	Secrets:
+	•	Use Secret Manager for system secrets. Do not store raw secrets in DB or commit to repo.
+	•	Logging:
+	•	Structured logs with request_id correlation; redact sensitive info.
+	•	Dependency management:
+	•	Use automated Dependabot or similar to keep dependencies up-to-date.
+	•	CI security:
+	•	Use GitHub OIDC to avoid long-lived cloud credentials.
+	•	Vulnerability scanning:
+	•	Run container image vulnerability scan in CI before push/publish (optional GitHub Action).
+	•	Document all above steps and runbook for incident response.
+
+⸻
+
+13 — Summaries, titles, job reliability (detailed)
+	•	Summarization:
+	•	Each assistant completion enqueues a summarize job (persisted).
+	•	Worker picks up jobs and updates threads.models[modelId].last_summary.
+	•	Title generation:
+	•	After the first assistant reply for a thread+model pair, enqueue title-gen job.
+	•	Title job uses same model with a short instruction and writes thread.title if default.
+	•	Job reliability:
+	•	Use DB job records + Cloud Tasks to ensure exactly-once semantics or at-least-once with idempotent job processing.
+	•	Worker must mark job processed (status updated) after completion.
+
+⸻
+
+14 — Local development & test environment
+	•	Provide docker-compose for local development:
+	•	Backend container built from Dockerfile; runs server and can optionally spawn Ollama locally (if developer has installed/available).
+	•	For local dev use MongoDB container (or use Firebase Emulator).
+	•	Support two local flows:
+	•	Firebase flow: use Firebase Emulator Suite for DB & auth locally.
+	•	MongoDB flow: use mongodb container and DB_PROVIDER=mongodb.
+	•	Provide local seed and migration scripts to prime DB for dev.
+	•	Provide scripts/add-user CLI which can be run locally or as Cloud Function in production.
+
+⸻
+
+15 — Observability & metrics
+	•	Expose metrics endpoint (Prometheus style or JSON) for:
+	•	Requests per endpoint, model calls, tokens consumed, worker queue depth.
+	•	Logs to Cloud Logging with structured fields.
+	•	Health endpoint used by Uptime checks and displayed in UI.
+
+⸻
+
+16 — Tests in CI — Postman/Newman integration details
+	•	Postman collection contains integration tests for:
+	•	Auth lifecycle.
+	•	Thread lifecycle.
+	•	Messages streaming and finalization.
+	•	Summarization job execution and summary existence.
+	•	Health endpoint behavior.
+	•	In CI, start backend in test mode connected to in-memory DB:
+	•	Use mongodb-memory-server for Mongo DB provider.
+	•	Or Firebase Emulator Suite for Realtime Database.
+	•	Run Newman in CI after server startup and before building/publishing images; fail the build if any integration test fails.
+
+⸻
+
+17 — Edge-cases & operational notes
+	•	Model loading failures: surface clear error to user; persist failure reason in DB; allow retry.
+	•	Partial responses: mark assistant message as partial and allow client to request fill or retry.
+	•	Scaling/Growth: note that per-instance model loads can multiply resource consumption; document recommended concurrency / maxInstances settings for Cloud Run.
+	•	Backpressure: restrict concurrent model calls per user to protect resources.
+
+⸻
+
+18 — Implementation approach & incremental milestones
+
+Design the work in incremental milestones (each milestone corresponds to a prompt later, but we only provide structure now):
+
+Phase 0 — Project skeleton
+	•	Repo scaffolding for backend & frontend.
+	•	Basic CI skeleton: bump/versioning action, tests scaffold.
+	•	Dockerfile and basic docker-compose for local dev.
+
+Phase 1 — Auth + core CRUD
+	•	Implement POST /api/login, /api/threads CRUD, messages write API (non-streaming), DB migrations and seed.
+	•	Provide CLI/Cloud Function to create/update user.
+	•	TDD: unit tests + small integration tests.
+
+Phase 2 — Models catalog & model selection UI
+	•	Implement model catalog API, frontend dropdown, temperature constraints.
+	•	Implement GET /api/models/:id/status and model load endpoint stub.
+
+Phase 3 — Local Ollama integration & streaming
+	•	Implement loader API for Ollama in-container, SSE streaming, worker that persists partial messages during streaming.
+	•	UI streaming client.
+
+Phase 4 — Summarization & title generation
+	•	Job persistence + worker, summary updates, title generator on first reply.
+
+Phase 5 — CI/CD & deployment
+	•	Full GitHub Actions for both repos, image push to GHCR, Cloud Run deploy, Firebase deploy.
+	•	Newman integration tests run in CI.
+
+Phase 6 — Hardening & observability
+	•	Add logging, metrics, security checklist, and runbook.
+
+(Each phase is TDD-driven: start with failing tests, implement, make tests pass, then code review.)
+
+⸻
+
+19 — Prompt STRUCTURE skeleton (for later generation) — only the structure
+
+This is the template we will use later to generate Jules/engineer prompts for each repo and per milestone. We are not generating prompt content now — only the structure/sections that each prompt should contain.
+
+Common prompt structure (for both backend & frontend repo prompts)
+	1.	Title — short statement of the task (repo + milestone).
+	2.	Context — one-paragraph summary of the project and design decisions (links to design doc).
+	3.	Goal / Objective — what must be delivered by the task.
+	4.	Scope (must have / nice-to-have) — exact acceptance criteria; TDD expectations.
+	5.	Tech Stack — runtime, libraries, versions (Node LTS, Express, Vite, React).
+	6.	APIs / Interfaces — list of endpoints (method, path, auth, request/response sketch).
+	7.	Data model — collections/tables and key fields.
+	8.	Testing requirements — unit tests to write first (describe test cases), integration tests (Postman collection items), CI integration.
+	9.	CI/CD — actions, build, test, tag & publish steps the prompt should create.
+	10.	Deployment instructions — container build args, runtime env variables, secrets consumed (list).
+	11.	Migration & seed — migration tasks to include and seed data to prime.
+	12.	Observability & logging — required logs and metrics to emit.
+	13.	Security checklist — how to handle secrets, encryption, cookie/JWT rules.
+	14.	Developer ergonomics — scripts to include (start:test, migrate, add-user).
+	15.	Acceptance tests — exact Postman tests or unit tests that must pass before merge.
+	16.	Deliverables — files/folders to be present, README items, docs pages to create.
+	17.	Incremental plan — tasks & subtasks for the milestone.
+	18.	Notes & constraints — any limitations or special considerations (e.g., model loading latency).
+	19.	Versioning & release — how the prompt should ensure versioning is embedded into build.
+
+We will reuse this structure when you ask us to generate the actual repo-specific prompt content for each milestone.
+
+⸻
+
+20 — Next steps (no prompt generation yet)
+	•	This design is finalized and ready. When you confirm, I will:
+	•	Generate the backend prompt (following the structure above) for Phase 0 and Phase 1 (scaffold + core CRUD/TDD).
+	•	Generate the frontend prompt (Phase 0 + Phase 1) thereafter.
+	•	Generate sample GitHub Actions workflows and skeleton migrations/ files and Postman collection schema as part of the prompts.
