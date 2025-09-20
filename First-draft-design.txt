@@ -217,8 +217,8 @@ Backend workflow (merge->main)
 	5.	Start backend in test mode with in-memory DB (mock firebase or mongodb-memory-server).
 	6.	Run Newman Postman integration tests against started test server.
 	7.	Build Docker image with --build-arg VERSION=${VERSION} and label.
-	8.	Push to GHCR (ghcr.io/org/backend:${VERSION}).
-	9.	Deploy Cloud Run service referencing GHCR image (gcloud auth with SA or via OIDC).
+	8.	Push image to GHCR (ghcr.io/org/backend:${VERSION}).
+	9.	Deploy to Cloud Run service referencing GHCR image (gcloud auth with SA or via OIDC).
 	10.	On success, publish GitHub Release with notes and artifacts as needed.
 
 Frontend workflow (merge->main)
@@ -332,39 +332,236 @@ Note: Integration tests should run before build/publish steps to prevent releasi
 
 ⸻
 
-18 — Implementation approach & incremental milestones
+18 — Implementation approach & incremental milestones  (UPDATED — backend & frontend flows)
 
-Design the work in incremental milestones (each milestone corresponds to a prompt later, but we only provide structure now):
+Below is the detailed, milestone-driven implementation plan split into Backend and Frontend flows. Each milestone is TDD-first: write failing tests, implement code to satisfy tests, then extend integration tests (Postman/Newman) and CI. Each milestone outlines acceptance criteria, key tasks, and CI expectations.
 
-Phase 0 — Project skeleton
-	•	Repo scaffolding for backend & frontend.
-	•	Basic CI skeleton: bump/versioning action, tests scaffold.
-	•	Dockerfile and basic docker-compose for local dev.
+Backend Flow (Backend API + Ollama process inside Cloud Run container)
 
-Phase 1 — Auth + core CRUD
-	•	Implement POST /api/login, /api/threads CRUD, messages write API (non-streaming), DB migrations and seed.
-	•	Provide CLI/Cloud Function to create/update user.
-	•	TDD: unit tests + small integration tests.
+Milestone 0 — Project scaffolding & initial CI
+	•	Tasks:
+	•	Initialize repo, TypeScript setup, folder layout: src/, tests/, migrations/, scripts/, docs/.
+	•	Add base Dockerfile that will package backend app + ability to run Ollama process in-container (process supervisor/entrypoint).
+	•	Add docker-compose for local dev supporting MongoDB and Firebase Emulator options.
+	•	Add environment config conventions (.env.example).
+	•	Implement placeholder endpoints returning mocks: GET /api/health, GET /api/models (empty), GET /api/version (reads build arg).
+	•	Create failing unit tests for these endpoints (TDD start).
+	•	GitHub Actions minimal workflow: lint, install, run tests (should fail initially), build Docker image stage (no push), and artefact caching.
+	•	Acceptance:
+	•	Repo scaffolding present, CI configured.
+	•	Developer can run tests locally and in CI.
+	•	README contains dev setup steps and test commands.
 
-Phase 2 — Models catalog & model selection UI
-	•	Implement model catalog API, frontend dropdown, temperature constraints.
-	•	Implement GET /api/models/:id/status and model load endpoint stub.
+Milestone 1 — DB abstraction & migrations
+	•	Tasks:
+	•	Implement DB abstraction layer for Firebase and Mongo (adapter pattern).
+	•	Implement migrations runner and initial migration scripts to seed models_config.
+	•	Provide CLI commands migrate:up, migrate:status.
+	•	Add tests: migration idempotency; DB adapter unit tests using in-memory Mongo & Firebase emulator mocks.
+	•	Acceptance:
+	•	Migrations can be executed locally in both DB modes.
+	•	CI runs migration tests and migration step passes in test environment.
 
-Phase 3 — Local Ollama integration & streaming
-	•	Implement loader API for Ollama in-container, SSE streaming, worker that persists partial messages during streaming.
-	•	UI streaming client.
+Milestone 2 — Auth & user utilities
+	•	Tasks:
+	•	Implement password hashing (bcrypt) and createOrUpdateUser script/Cloud Function that can be invoked to add/update users (support for both local and Cloud Function invocation).
+	•	Implement POST /api/login and JWT issuance; httpOnly cookie support.
+	•	Implement auth middleware and protected route skeleton.
+	•	Unit tests for auth flows (hashing, token expiry).
+	•	Integration tests in Postman: add-user via script, login, access protected endpoint.
+	•	Acceptance:
+	•	Admin tools can create/update user credentials.
+	•	Login returns JWT cookie; authenticated endpoints respond properly.
 
-Phase 4 — Summarization & title generation
-	•	Job persistence + worker, summary updates, title generator on first reply.
+Milestone 3 — Models catalog & model-control APIs
+	•	Tasks:
+	•	Finish models_config schema & endpoints:
+	•	GET /api/models (catalog).
+	•	GET /api/models/:modelId/status.
+	•	POST /api/models/:modelId/load.
+	•	Implement logic to map apiKeyType and allowed temperature controls.
+	•	Implement DB storage for models_config and admin migration seeds for supported models list (ollama, claude variants, google variants, openai variants).
+	•	Tests: model catalog parsing unit tests; POST /models/:id/load request validation tests (mocked loader).
+	•	Acceptance:
+	•	Frontend can query /api/models and render model dropdown correctly with constraints.
+	•	Load endpoint returns appropriate job id or immediate status.
 
-Phase 5 — CI/CD & deployment
-	•	Full GitHub Actions for both repos, image push to GHCR, Cloud Run deploy, Firebase deploy.
-	•	Newman integration tests run in CI.
+Milestone 4 — Messages storage & pagination
+	•	Tasks:
+	•	Implement messages collection with indexes for thread_id + created_at.
+	•	Implement thread endpoints (POST /api/threads, GET /api/threads, GET /api/threads/:id, PATCH /api/threads/:id/title, DELETE).
+	•	Implement message endpoints with pagination (GET /.../messages?limit&cursor).
+	•	Unit tests for pagination, ordering, and access control.
+	•	Postman tests for thread and paginated message retrieval (Newman).
+	•	Acceptance:
+	•	Messages saved in separate collection and paginated retrieval works with cursor.
 
-Phase 6 — Hardening & observability
-	•	Add logging, metrics, security checklist, and runbook.
+Milestone 5 — Core chat flow, prompt builder & model proxy
+	•	Tasks:
+	•	Implement prompt builder (TDD): assemble system prompt, thread-model summary, recent messages until CONTEXT_TOKEN_BUDGET, append user message.
+	•	Implement POST /api/threads/:threadId/models/:modelId/messages:
+	•	Save user message.
+	•	Call local Ollama (if provider=ollama) or proxy to remote provider using decrypted user API key.
+	•	Support stream=true (SSE) and non-stream modes.
+	•	Persist assistant message (partial → complete).
+	•	Enqueue summary job.
+	•	Add token-estimation utility (unit tested).
+	•	Integration tests: simulate a message send with in-memory DB and mock model backend; validate storage and job enqueue.
+	•	Acceptance:
+	•	Chat POST endpoint persists messages and returns streamed tokens (mocked) or final reply.
 
-(Each phase is TDD-driven: start with failing tests, implement, make tests pass, then code review.)
+Milestone 6 — Local Ollama integration & model loading
+	•	Tasks:
+	•	Implement in-container Ollama loader:
+	•	Supervisor spawns the Ollama process when POST /api/models/gemma-2b/load invoked.
+	•	Expose loader status via /api/models/gemma-2b/status.
+	•	Provide progress streaming via SSE if possible.
+	•	Tests:
+	•	Unit tests for loader orchestration logic (mock child process).
+	•	Integration tests that call loader endpoint and poll status (mocked).
+	•	Operational docs describing memory, CPU sizing and concurrency recommendations.
+	•	Acceptance:
+	•	Loader endpoint triggers the loader; status transitions from not_loaded → loading → loaded (simulated in tests).
+
+Milestone 7 — Summarization & title generation worker
+	•	Tasks:
+	•	Implement job queue handling inside container:
+	•	Cloud Tasks / DB job polling-based worker that processes summarize and title-gen jobs.
+	•	Worker updates threads.models[modelId].last_summary and thread.title.
+	•	Ensure worker is resilient — idempotency checks & retries.
+	•	Tests:
+	•	Unit tests for job-processing logic.
+	•	Integration Newman tests that create messages and assert summaries get created.
+	•	Acceptance:
+	•	Summarize jobs processed, results written to DB, title-gen updates title on first assistant reply.
+
+Milestone 8 — Health, metrics & security
+	•	Tasks:
+	•	Complete /api/health with DB checks, Ollama check, internal endpoints check.
+	•	Implement logging, structured events, basic metrics.
+	•	Harden security: input validation, rate limiting, JWT rotation docs.
+	•	Run security tests (invalid token, injection attempts).
+	•	Acceptance:
+	•	Health endpoint reports correct statuses and metrics are emitted.
+
+Milestone 9 — CI/CD finalization & production deploy
+	•	Tasks:
+	•	Finalize GitHub Actions workflows:
+	•	Test stage: unit + Newman integration tests in in-memory DB.
+	•	Build stage: create Docker image with embedded version, push to GHCR.
+	•	Deploy stage: deploy to Cloud Run referencing GHCR image (OIDC recommended).
+	•	Release process behavior: version tag creation and patch increment by default.
+	•	Run full pipeline against staging environment.
+	•	Acceptance:
+	•	CI passes, Docker image pushed to GHCR, Cloud Run deployed from GHCR.
+
+Milestone 10 — Operational tooling & docs
+	•	Tasks:
+	•	Provide CLI scripts & Cloud Function for user creation/updating password.
+	•	Provide migration runner docs & example migration scripts.
+	•	Runbook & security hardening checklist.
+	•	Acceptance:
+	•	Admins can add/update users and seed DB via documented tools.
+
+⸻
+
+Frontend Flow (Vite + React)
+
+Milestone 0 — Project scaffolding & initial CI
+	•	Tasks:
+	•	Initialize frontend repo with Vite + React + TypeScript + Tailwind.
+	•	Add project layout: src/, tests/, public/, docs/.
+	•	Add GitHub Actions skeleton: lint, unit tests, build (no deploy yet).
+	•	Create placeholder pages/components: Login, Dashboard (sidebar + main pane), Health.
+	•	Create failing component unit tests (TDD entry).
+	•	Acceptance:
+	•	Repo scaffolded and CI configured; npm test runs (fails until tests implemented).
+
+Milestone 1 — Auth & session
+	•	Tasks:
+	•	Implement login page calling backend POST /api/login and storing JWT via httpOnly cookie (or correct session mechanism).
+	•	Implement route guarding and redirect to login when unauthenticated.
+	•	Add unit tests for login form validation and authentication flows (mocked backend).
+	•	Acceptance:
+	•	Login works against backend mock; protected routes block unauthenticated access.
+
+Milestone 2 — Threads UI & pagination
+	•	Tasks:
+	•	Implement sidebar with thread list fetching GET /api/threads with cursor-based pagination.
+	•	Add search input (calls GET /api/threads?q=...).
+	•	Implement New Thread flow and inline rename UI calling POST /api/threads and PATCH /api/threads/:id/title.
+	•	Implement infinite-scroll behavior in sidebar and for messages pane.
+	•	Tests:
+	•	Unit & component tests for pagination logic.
+	•	Integration E2E: create thread and ensure it appears in list.
+	•	Acceptance:
+	•	Sidebar loads via pagination and search; new thread creation reflected.
+
+Milestone 3 — Model selection & constraints UI
+	•	Tasks:
+	•	Implement model dropdown fetching GET /api/models.
+	•	Render temperature control according to temperatureType (slider or discrete toggle).
+	•	Show disabled models when user lacks API key.
+	•	For local Gemma show load status and Load action calling POST /api/models/:id/load.
+	•	Tests:
+	•	Component tests for dropdown and slider modes.
+	•	E2E tests: model selection changes UI controls.
+	•	Acceptance:
+	•	Model dropdown lists options and adjusts controls per model config.
+
+Milestone 4 — Chat pane & streaming
+	•	Tasks:
+	•	Implement the chat message list (virtualized) and message input.
+	•	Implement POST /api/threads/:threadId/models/:modelId/messages call with stream=true using SSE client; render tokens as they arrive.
+	•	Show per-message metadata: tokens consumed, latency.
+	•	Add keyboard shortcuts (Cmd/Ctrl+Enter to send).
+	•	Tests:
+	•	Unit tests for SSE handling and streaming UI.
+	•	E2E test: send message and receive streamed reply (mocked).
+	•	Acceptance:
+	•	Streaming UI shows incremental tokens and finalizes assistant message in UI.
+
+Milestone 5 — Health & model load UI
+	•	Tasks:
+	•	Implement topbar health display by polling GET /api/health.
+	•	Add refresh button to re-check health.
+	•	For local model loading flow, show progress and final loaded state next to model selector.
+	•	Tests:
+	•	Component tests for health component.
+	•	E2E tests: health refresh updates UI.
+	•	Acceptance:
+	•	Health status shown and refresh works; model loading progress visible.
+
+Milestone 6 — Profile & API key management
+	•	Tasks:
+	•	Profile screen to edit system_prompt, display_name, default model/temp.
+	•	API keys screen to add/update Claude/Google/OpenAI keys (POST /api/profile/api-keys).
+	•	Validations & security (do not show raw API keys).
+	•	Tests:
+	•	Unit tests for form validations.
+	•	E2E tests: update API keys, verify models activate/deactivate accordingly.
+	•	Acceptance:
+	•	Profile changes persist and model options reflect API keys availability.
+
+Milestone 7 — Summaries & title display
+	•	Tasks:
+	•	Display per-model summaries in thread list snippets and in thread meta.
+	•	Allow forced refresh of summary via UI action (calls internal summarize endpoint).
+	•	Tests:
+	•	Component tests for summary display.
+	•	E2E: force-refresh summary and verify updated snippet.
+	•	Acceptance:
+	•	Summaries appear appropriately and refresh works.
+
+Milestone 8 — Polish, accessibility & deploy
+	•	Tasks:
+	•	Add responsive styles, dark mode, accessibility checks.
+	•	Finalize build pipeline: set VITE_APP_VERSION during GitHub Actions build and embed into UI.
+	•	Configure Firebase Hosting deploy step in CI.
+	•	Tests:
+	•	Accessibility audit, unit and E2E full happy path.
+	•	Acceptance:
+	•	Frontend builds, deploys to Firebase, version visible in UI.
 
 ⸻
 
@@ -399,6 +596,6 @@ We will reuse this structure when you ask us to generate the actual repo-specifi
 
 20 — Next steps (no prompt generation yet)
 	•	This design is finalized and ready. When you confirm, I will:
-	•	Generate the backend prompt (following the structure above) for Phase 0 and Phase 1 (scaffold + core CRUD/TDD).
-	•	Generate the frontend prompt (Phase 0 + Phase 1) thereafter.
-	•	Generate sample GitHub Actions workflows and skeleton migrations/ files and Postman collection schema as part of the prompts.
+	1.	Generate the backend prompt (following the structure above) for Phase 0 and Phase 1 (scaffold + core CRUD/TDD).
+	2.	Generate the frontend prompt (Phase 0 + Phase 1) thereafter.
+	3.	Generate sample GitHub Actions workflows and skeleton migrations/ files and Postman collection schema as part of the prompts.
