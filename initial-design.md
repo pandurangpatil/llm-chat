@@ -76,7 +76,7 @@ The application follows a **three-tier architecture**:
 **Integration Points:**
 - RESTful API communication between frontend and backend
 - Server-Sent Events (SSE) for real-time message streaming
-- Cloud Tasks for reliable background job processing
+- Background job processing handled inline within API call flow
 
 ### System Components
 
