@@ -51,7 +51,7 @@
 
 - **Two repos**: backend (Node.js + TypeScript + Express) and frontend (Vite + React)
 - **Backend and Ollama** (Gemma 2 2B) will run together inside the same Cloud Run Docker container; Ollama runs as a separate process started by the container
-- **Storage**: primary is Firebase Realtime Database; local/dev alternative: MongoDB (dev mode). DB provider selected by env var
+- **Storage**: Firebase Realtime Database for both production and local/dev (using Firebase Emulator for local). DB provider selected by env var
 - **Per-user API keys** (Claude, Google, ChatGPT) are stored encrypted in DB (encrypted with system key stored in Secret Manager/KMS)
 - **No user registration/reset API**: an admin Cloud Function and bundled CLI utility to create/update users (password hash)
 - **Model config** (available models, mapping to which API-key type, and allowed parameter constraints) is stored in DB and exposed via API for the frontend
@@ -71,7 +71,7 @@
 The application follows a **three-tier architecture**:
 - **Frontend Layer**: React SPA with Vite bundler hosted on Firebase Hosting (CDN-distributed)
 - **Backend API Layer**: Node.js/Express server running on Google Cloud Run (containerized, auto-scaling)
-- **Data Layer**: Firebase Realtime Database (production) or MongoDB (development)
+- **Data Layer**: Firebase Realtime Database (production with real database, development with Firebase Emulator)
 
 **Integration Points:**
 - RESTful API communication between frontend and backend
@@ -102,7 +102,7 @@ The application follows a **three-tier architecture**:
 
 #### Data Persistence Layer
 - **Primary**: Firebase Realtime Database with real-time sync capabilities
-- **Alternative**: MongoDB for local development environment
+- **Local Development**: Firebase Emulator Suite for offline development
 - Encrypted API key storage using KMS-managed system keys
 - Thread, message, and user data management with cursor-based pagination
 
@@ -149,7 +149,7 @@ The application follows a **three-tier architecture**:
 
 ### DB provider abstraction
 
-- Backend must implement a data-layer abstraction to switch between Firebase Realtime DB and MongoDB based on `DB_PROVIDER` env var
+- Backend must implement a data-layer abstraction to switch between Firebase Realtime DB (production) and Firebase Emulator (local) based on `DB_PROVIDER` env var
 - Migration scripts must support both backends (provide a unified migration API that runs JS migration files and can operate on either provider)
 
 ---
@@ -223,7 +223,7 @@ Store full model catalog in `models_config` in DB. Example fields relevant to UI
 `/api/health` returns:
 - `service`: `ok|degraded|down`
 - `uptime_seconds`
-- `db`: `{ ok: true/false, provider: firebase|mongodb, latency_ms }`
+- `db`: `{ ok: true/false, provider: firebase|firebase-emulator, latency_ms }`
 - `ollama`: `{ status: not_loaded|loading|loaded|error, model: gemma-2b, progress?: 0..100 }`
 - `internal_api`: `{ status: ok }`
 
@@ -300,7 +300,7 @@ Each new Cloud Run instance must load local model on demand. Document cost + lat
 - Postman collection (or Newman) that exercises auth, thread creation, message flow, summarization trigger, and health endpoints
 - These integration tests are executed during CI build stage:
   - Start backend in test mode inside the job (use `npm start:test`), connecting to an in-memory DB:
-    - For MongoDB: use `mongodb-memory-server`
+    - Use Firebase Emulator Suite for local testing
     - For Firebase: use Firebase Emulator Suite or mock DB adapter (in-memory implementation) to avoid external dependency
   - Run Newman (postman) collection against the started server
 
@@ -331,7 +331,7 @@ Each new Cloud Run instance must load local model on demand. Document cost + lat
 2. Bump version (default patch) and create tag `vX.Y.Z` (or accept provided tag)
 3. Install deps, run linter
 4. Run unit tests
-5. Start backend in test mode with in-memory DB (mock firebase or mongodb-memory-server)
+5. Start backend in test mode with in-memory DB (Firebase Emulator Suite)
 6. Run Newman Postman integration tests against started test server
 7. Build Docker image with `--build-arg VERSION=${VERSION}` and label
 8. Push image to GHCR (`ghcr.io/org/backend:${VERSION}`)
@@ -427,10 +427,8 @@ Each new Cloud Run instance must load local model on demand. Document cost + lat
 
 - Provide docker-compose for local development:
   - Backend container built from Dockerfile; runs server and can optionally spawn Ollama locally (if developer has installed/available)
-  - For local dev use MongoDB container (or use Firebase Emulator)
-- Support two local flows:
-  - **Firebase flow**: use Firebase Emulator Suite for DB & auth locally
-  - **MongoDB flow**: use mongodb container and `DB_PROVIDER=mongodb`
+  - For local dev use Firebase Emulator Suite
+- Use Firebase Emulator Suite for DB & auth locally
 - Provide local seed and migration scripts to prime DB for dev
 - Provide `scripts/add-user` CLI which can be run locally or as Cloud Function in production
 
@@ -454,9 +452,7 @@ Postman collection contains integration tests for:
 - Summarization job execution and summary existence
 - Health endpoint behavior
 
-In CI, start backend in test mode connected to in-memory DB:
-- Use `mongodb-memory-server` for Mongo DB provider
-- Or Firebase Emulator Suite for Realtime Database
+In CI, start backend in test mode connected to Firebase Emulator Suite for Realtime Database
 - Run Newman in CI after server startup and before building/publishing images; fail the build if any integration test fails
 
 ---
@@ -484,14 +480,14 @@ This section describes milestone-by-milestone plans for the backend and frontend
 
 **Objectives:**
 - Create repo scaffolding: `src/`, `tests/`, `migrations/`, `scripts/`, `docs/`
-- Add base Dockerfile and a `docker-compose.yml` for local development (with optional MongoDB or Firebase emulator)
+- Add base Dockerfile and a `docker-compose.yml` for local development (with Firebase Emulator)
 - Provide environment config conventions and `.env.example`
 - Implement minimal mock endpoints: `GET /api/health`, `GET /api/models` (returns []), `GET /api/version` (reads build arg)
 
 **Coding-agent start mechanism:**
 - Provide an explicit start/test command that a coding agent can run to start the backend in test-mode with an in-memory DB:
   - Example design-level script names: `npm run start:test` and `npm run start:ci`
-  - `start:test` runs the server bound to `0.0.0.0:${PORT:-3000}` and uses an in-memory DB adapter (mongodb-memory-server or firebase emulator mock). It prints readiness and exposes `/api/health`
+  - `start:test` runs the server bound to `0.0.0.0:${PORT:-3000}` and uses Firebase Emulator Suite. It prints readiness and exposes `/api/health`
   - `start:ci` is equivalent but optimized for CI: deterministic ports, logs to stdout, no interactive prompts
 - Provide `docker-compose.ci.yml` which can start the API container (built locally) and optional DB container for testing; CI can `docker-compose -f docker-compose.ci.yml up --build -d` to start the service
 - Provide a `wait-for-health.sh` script (or equivalent behavior) that polls `/api/health` until it returns ok or times out — CI/test runners and coding agents should use this before running integration tests
