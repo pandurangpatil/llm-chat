@@ -332,238 +332,229 @@ Note: Integration tests should run before build/publish steps to prevent releasi
 
 ⸻
 
-18 — Implementation approach & incremental milestones  (UPDATED — backend & frontend flows)
+18 — Implementation approach & incremental milestones (UPDATED — backend & frontend flows, coding-agent start & frontend CI early)
 
-Below is the detailed, milestone-driven implementation plan split into Backend and Frontend flows. Each milestone is TDD-first: write failing tests, implement code to satisfy tests, then extend integration tests (Postman/Newman) and CI. Each milestone outlines acceptance criteria, key tasks, and CI expectations.
-
-Backend Flow (Backend API + Ollama process inside Cloud Run container)
-
-Milestone 0 — Project scaffolding & initial CI
-	•	Tasks:
-	•	Initialize repo, TypeScript setup, folder layout: src/, tests/, migrations/, scripts/, docs/.
-	•	Add base Dockerfile that will package backend app + ability to run Ollama process in-container (process supervisor/entrypoint).
-	•	Add docker-compose for local dev supporting MongoDB and Firebase Emulator options.
-	•	Add environment config conventions (.env.example).
-	•	Implement placeholder endpoints returning mocks: GET /api/health, GET /api/models (empty), GET /api/version (reads build arg).
-	•	Create failing unit tests for these endpoints (TDD start).
-	•	GitHub Actions minimal workflow: lint, install, run tests (should fail initially), build Docker image stage (no push), and artefact caching.
-	•	Acceptance:
-	•	Repo scaffolding present, CI configured.
-	•	Developer can run tests locally and in CI.
-	•	README contains dev setup steps and test commands.
-
-Milestone 1 — DB abstraction & migrations
-	•	Tasks:
-	•	Implement DB abstraction layer for Firebase and Mongo (adapter pattern).
-	•	Implement migrations runner and initial migration scripts to seed models_config.
-	•	Provide CLI commands migrate:up, migrate:status.
-	•	Add tests: migration idempotency; DB adapter unit tests using in-memory Mongo & Firebase emulator mocks.
-	•	Acceptance:
-	•	Migrations can be executed locally in both DB modes.
-	•	CI runs migration tests and migration step passes in test environment.
-
-Milestone 2 — Auth & user utilities
-	•	Tasks:
-	•	Implement password hashing (bcrypt) and createOrUpdateUser script/Cloud Function that can be invoked to add/update users (support for both local and Cloud Function invocation).
-	•	Implement POST /api/login and JWT issuance; httpOnly cookie support.
-	•	Implement auth middleware and protected route skeleton.
-	•	Unit tests for auth flows (hashing, token expiry).
-	•	Integration tests in Postman: add-user via script, login, access protected endpoint.
-	•	Acceptance:
-	•	Admin tools can create/update user credentials.
-	•	Login returns JWT cookie; authenticated endpoints respond properly.
-
-Milestone 3 — Models catalog & model-control APIs
-	•	Tasks:
-	•	Finish models_config schema & endpoints:
-	•	GET /api/models (catalog).
-	•	GET /api/models/:modelId/status.
-	•	POST /api/models/:modelId/load.
-	•	Implement logic to map apiKeyType and allowed temperature controls.
-	•	Implement DB storage for models_config and admin migration seeds for supported models list (ollama, claude variants, google variants, openai variants).
-	•	Tests: model catalog parsing unit tests; POST /models/:id/load request validation tests (mocked loader).
-	•	Acceptance:
-	•	Frontend can query /api/models and render model dropdown correctly with constraints.
-	•	Load endpoint returns appropriate job id or immediate status.
-
-Milestone 4 — Messages storage & pagination
-	•	Tasks:
-	•	Implement messages collection with indexes for thread_id + created_at.
-	•	Implement thread endpoints (POST /api/threads, GET /api/threads, GET /api/threads/:id, PATCH /api/threads/:id/title, DELETE).
-	•	Implement message endpoints with pagination (GET /.../messages?limit&cursor).
-	•	Unit tests for pagination, ordering, and access control.
-	•	Postman tests for thread and paginated message retrieval (Newman).
-	•	Acceptance:
-	•	Messages saved in separate collection and paginated retrieval works with cursor.
-
-Milestone 5 — Core chat flow, prompt builder & model proxy
-	•	Tasks:
-	•	Implement prompt builder (TDD): assemble system prompt, thread-model summary, recent messages until CONTEXT_TOKEN_BUDGET, append user message.
-	•	Implement POST /api/threads/:threadId/models/:modelId/messages:
-	•	Save user message.
-	•	Call local Ollama (if provider=ollama) or proxy to remote provider using decrypted user API key.
-	•	Support stream=true (SSE) and non-stream modes.
-	•	Persist assistant message (partial → complete).
-	•	Enqueue summary job.
-	•	Add token-estimation utility (unit tested).
-	•	Integration tests: simulate a message send with in-memory DB and mock model backend; validate storage and job enqueue.
-	•	Acceptance:
-	•	Chat POST endpoint persists messages and returns streamed tokens (mocked) or final reply.
-
-Milestone 6 — Local Ollama integration & model loading
-	•	Tasks:
-	•	Implement in-container Ollama loader:
-	•	Supervisor spawns the Ollama process when POST /api/models/gemma-2b/load invoked.
-	•	Expose loader status via /api/models/gemma-2b/status.
-	•	Provide progress streaming via SSE if possible.
-	•	Tests:
-	•	Unit tests for loader orchestration logic (mock child process).
-	•	Integration tests that call loader endpoint and poll status (mocked).
-	•	Operational docs describing memory, CPU sizing and concurrency recommendations.
-	•	Acceptance:
-	•	Loader endpoint triggers the loader; status transitions from not_loaded → loading → loaded (simulated in tests).
-
-Milestone 7 — Summarization & title generation worker
-	•	Tasks:
-	•	Implement job queue handling inside container:
-	•	Cloud Tasks / DB job polling-based worker that processes summarize and title-gen jobs.
-	•	Worker updates threads.models[modelId].last_summary and thread.title.
-	•	Ensure worker is resilient — idempotency checks & retries.
-	•	Tests:
-	•	Unit tests for job-processing logic.
-	•	Integration Newman tests that create messages and assert summaries get created.
-	•	Acceptance:
-	•	Summarize jobs processed, results written to DB, title-gen updates title on first assistant reply.
-
-Milestone 8 — Health, metrics & security
-	•	Tasks:
-	•	Complete /api/health with DB checks, Ollama check, internal endpoints check.
-	•	Implement logging, structured events, basic metrics.
-	•	Harden security: input validation, rate limiting, JWT rotation docs.
-	•	Run security tests (invalid token, injection attempts).
-	•	Acceptance:
-	•	Health endpoint reports correct statuses and metrics are emitted.
-
-Milestone 9 — CI/CD finalization & production deploy
-	•	Tasks:
-	•	Finalize GitHub Actions workflows:
-	•	Test stage: unit + Newman integration tests in in-memory DB.
-	•	Build stage: create Docker image with embedded version, push to GHCR.
-	•	Deploy stage: deploy to Cloud Run referencing GHCR image (OIDC recommended).
-	•	Release process behavior: version tag creation and patch increment by default.
-	•	Run full pipeline against staging environment.
-	•	Acceptance:
-	•	CI passes, Docker image pushed to GHCR, Cloud Run deployed from GHCR.
-
-Milestone 10 — Operational tooling & docs
-	•	Tasks:
-	•	Provide CLI scripts & Cloud Function for user creation/updating password.
-	•	Provide migration runner docs & example migration scripts.
-	•	Runbook & security hardening checklist.
-	•	Acceptance:
-	•	Admins can add/update users and seed DB via documented tools.
+This section describes milestone-by-milestone plans for the backend and frontend repos. Each milestone is TDD-first: write failing tests (unit / integration), implement code until tests pass, expand Postman/Newman integration tests, and ensure CI runs green.
+Two important process-level rules added per your corrections:
+	1.	The backend and frontend are separate repos. There must be a clearly documented, reproducible mechanism that a coding agent (or CI job) can use to start the backend service (test-mode or container) and keep it available for frontend integration/E2E tests.
+	2.	Frontend CI/CD + deployment must be created in the first milestone of the frontend flow (not the last milestone).
 
 ⸻
 
-Frontend Flow (Vite + React)
+Backend Flow (Backend API + Ollama process inside single container)
 
-Milestone 0 — Project scaffolding & initial CI
-	•	Tasks:
-	•	Initialize frontend repo with Vite + React + TypeScript + Tailwind.
-	•	Add project layout: src/, tests/, public/, docs/.
-	•	Add GitHub Actions skeleton: lint, unit tests, build (no deploy yet).
-	•	Create placeholder pages/components: Login, Dashboard (sidebar + main pane), Health.
-	•	Create failing component unit tests (TDD entry).
+Milestone 0 — Repo scaffolding, minimal APIs, CI skeleton, and coding-agent start mechanism
+	•	Objectives:
+	•	Create repo scaffolding: src/, tests/, migrations/, scripts/, docs/.
+	•	Add base Dockerfile and a docker-compose.yml for local development (with optional MongoDB or Firebase emulator).
+	•	Provide environment config conventions and .env.example.
+	•	Implement minimal mock endpoints: GET /api/health, GET /api/models (returns []), GET /api/version (reads build arg).
+	•	Coding-agent start mechanism:
+	•	Provide an explicit start/test command that a coding agent can run to start the backend in test-mode with an in-memory DB:
+	•	Example design-level script names (no code yet): npm run start:test and npm run start:ci.
+	•	start:test runs the server bound to 0.0.0.0:${PORT:-3000} and uses an in-memory DB adapter (mongodb-memory-server or firebase emulator mock). It prints readiness and exposes /api/health.
+	•	start:ci is equivalent but optimized for CI: deterministic ports, logs to stdout, no interactive prompts.
+	•	Provide docker-compose.ci.yml which can start the API container (built locally) and optional DB container for testing; CI can docker-compose -f docker-compose.ci.yml up --build -d to start the service.
+	•	Provide a wait-for-health.sh script (or equivalent behavior) that polls /api/health until it returns ok or times out — CI/test runners and coding agents should use this before running integration tests.
+	•	TDD:
+	•	Add failing unit tests for placeholder endpoints.
+	•	CI (GitHub Actions) skeleton:
+	•	Lint + unit tests.
+	•	Job step that builds Docker image (locally) but does not push.
+	•	A job step template that shows how to run start:ci or docker-compose.ci.yml, run Newman/Postman tests, and tear down.
 	•	Acceptance:
-	•	Repo scaffolded and CI configured; npm test runs (fails until tests implemented).
+	•	A coding agent or developer can start the backend with a single documented command for local dev and CI.
+	•	Health probe works and is usable by test runners.
 
-Milestone 1 — Auth & session
+Milestone 1 — DB adapter & initial migrations
 	•	Tasks:
-	•	Implement login page calling backend POST /api/login and storing JWT via httpOnly cookie (or correct session mechanism).
-	•	Implement route guarding and redirect to login when unauthenticated.
-	•	Add unit tests for login form validation and authentication flows (mocked backend).
+	•	Implement DB-adapter abstraction (Firebase / Mongo) and migrations runner.
+	•	Seed models_config via migrations.
+	•	Ensure start:test uses migrations to load seed data into in-memory DB so integration tests have deterministic data.
 	•	Acceptance:
-	•	Login works against backend mock; protected routes block unauthenticated access.
+	•	Migrations runnable locally and in CI; integration tests can rely on seeded models_config.
+
+Milestone 2 — Auth & user utilities (incl. Cloud Function / script)
+	•	Tasks:
+	•	Implement createOrUpdateUser utility accessible as:
+	•	CLI script scripts/add-user for local dev (invokable by coding agent).
+	•	Cloud Function (production) for administrative invocation.
+	•	Auth endpoints and JWT issuance; start:test should support creating test admin user automatically or via the CLI.
+	•	Acceptance:
+	•	Coding agent can create a test user and authenticate against the running test server.
+
+Milestone 3 — Models & loader APIs
+	•	Tasks:
+	•	Implement GET /api/models, GET /api/models/:id/status, POST /api/models/:id/load.
+	•	POST /api/models/:id/load triggers in-container Ollama load. For test-mode, this endpoint can simulate load progress (so integration tests do not hang).
+	•	Acceptance:
+	•	Frontend tests can request model catalog and simulate model-load interactions in CI.
+
+Milestone 4 — Threads, messages, pagination
+	•	Tasks:
+	•	Messages storage in separate collection with pagination.
+	•	Thread CRUD APIs and message POST/GET with cursors.
+	•	start:test must be able to populate test threads/messages for deterministic frontend tests.
+	•	Acceptance:
+	•	Frontend integration tests use seeded threads/messages.
+
+Milestone 5 — Prompt builder, streaming proxy & summarization enqueue
+	•	Tasks:
+	•	Implement prompt builder and call-proxy logic (local or remote).
+	•	SSE streaming for POST /api/threads/:id/models/:model/messages.
+	•	Enqueue summarization jobs in DB/jobs collection.
+	•	Acceptance:
+	•	Streaming API exercised by integration tests (can be mocked or actual local Ollama if the CI environment supports it).
+
+Milestone 6 — Ollama loader implementation in-container
+	•	Tasks:
+	•	Implement supervisor logic to spawn the Ollama process on demand (on POST /api/models/gemma-2b/load).
+	•	In CI/test-mode, loader can be stubbed or run in a lightweight mode to avoid excessive resource needs.
+	•	Acceptance:
+	•	Loader endpoint works in local dev; CI can stub or run a minimal loader.
+
+Milestone 7 — Worker & job processing (summarization / title-gen)
+	•	Tasks:
+	•	Implement job worker in same container (exposed endpoint or polling loop).
+	•	In test-mode, worker runs synchronously or can be invoked via POST /api/jobs/:id/execute so coding agent/CI can execute jobs deterministically.
+	•	Acceptance:
+	•	Summaries and titles can be generated in test environment deterministically for integration tests.
+
+Milestone 8 — Health, metrics, security
+	•	Tasks:
+	•	Finalize health endpoint with DB & Ollama checks.
+	•	Harden API (validation, rate limiting).
+	•	Acceptance:
+	•	/api/health returns clear status usable by frontend tests and readiness checks.
+
+Milestone 9 — CI/CD, image build & deploy to GHCR and Cloud Run
+	•	Tasks:
+	•	Finalize GitHub Actions:
+	•	On merge to main, create release tag, run tests (unit + Newman integration against start:ci), build Docker image embedding version, push to GHCR, deploy to Cloud Run.
+	•	Ensure CI steps include start:ci or docker-compose.ci.yml pattern so the same way the coding agent started backend is used in CI.
+	•	Acceptance:
+	•	CI validates integration tests that require a running backend.
+
+Milestone 10 — Admin tools, docs & runbook
+	•	Tasks:
+	•	Provide scripts/add-user, scripts/migrate, scripts/start:test, docker-compose.ci.yml, and documented guidance for coding agents and CI.
+	•	Acceptance:
+	•	Enough tooling exists for automated agents to run full test suites locally and in CI.
+
+⸻
+
+Frontend Flow (Vite + React) — with CI/CD & deploy in Milestone 0
+
+Milestone 0 — Repo scaffolding, CI/CD & initial deploy capability (MUST-HAVE)
+	•	Important change per your correction: CI/CD and deployment are part of the first milestone.
+	•	Tasks:
+	•	Create frontend repo scaffold: src/, tests/, public/, docs/.
+	•	Add basic Vite + React + TypeScript setup with Tailwind.
+	•	Create GitHub Actions workflows now (milestone 0) that:
+	•	Run lint + unit tests.
+	•	Build the app with VITE_APP_VERSION injected (versioning workflow).
+	•	Deploy to Firebase Hosting (use FIREBASE_TOKEN secret); workflow includes steps to:
+	•	Start a backend test service before running integration tests (see below for mechanism).
+	•	Run integration tests and E2E only after backend readiness.
+	•	Provide a frontend CI job pattern that can:
+	•	Start backend service (for integration) using one of the methods below (documented and reproducible).
+	•	Run Newman/E2E tests against the started backend.
+	•	Deploy to Firebase Hosting on success.
+	•	Coding-agent integration mechanism (for UI tests):
+	•	Document and provide two ways for coding agent / CI to start a test backend to run UI integration tests:
+	1.	Direct Node start: call npm -w backend start:ci or run in backend repo npm run start:ci (recommended when backend source is available to the agent). This starts a local server using in-memory DB. The frontend CI job can call this if both repos are checked out in the same workspace or the backend repo is a submodule or available via HTTP download.
+	2.	Docker Compose: invoke docker-compose -f docker-compose.ci.yml up --build -d (which brings up the backend image and optional DB container). Then wait-for-health.sh polls /api/health until ready. This is the recommended approach when the agent builds the backend image as part of a combined CI workflow or uses a container from GHCR.
+	•	Provide scripts/frontend/run-integration-tests.sh (documented) that:
+	•	Accepts BACKEND_URL env var (defaults to http://localhost:3000).
+	•	Waits for BACKEND_URL/api/health to be ready.
+	•	Runs Newman or Playwright tests against BACKEND_URL.
+	•	Create initial placeholder pages (Login, Dashboard) and fail-first unit tests (TDD).
+	•	Acceptance:
+	•	Frontend CI can start a backend test service using either start:ci (node) or docker-compose.ci.yml, run integration tests against it, and deploy to Firebase Hosting if tests pass.
+
+Milestone 1 — Auth & app skeleton
+	•	Tasks:
+	•	Implement login page, token handling with httpOnly cookie.
+	•	Ensure frontend has env config to point to test backend (e.g., VITE_BACKEND_URL).
+	•	Add unit tests for auth UI.
+	•	CI must run these tests and block deployment on failure.
+	•	Acceptance:
+	•	Login works in integration tests with the started backend.
 
 Milestone 2 — Threads UI & pagination
 	•	Tasks:
-	•	Implement sidebar with thread list fetching GET /api/threads with cursor-based pagination.
-	•	Add search input (calls GET /api/threads?q=...).
-	•	Implement New Thread flow and inline rename UI calling POST /api/threads and PATCH /api/threads/:id/title.
-	•	Implement infinite-scroll behavior in sidebar and for messages pane.
-	•	Tests:
-	•	Unit & component tests for pagination logic.
-	•	Integration E2E: create thread and ensure it appears in list.
+	•	Implement sidebar with paged loads (GET /api/threads with cursor).
+	•	Integration tests (Playwright/Newman) that create threads on the started backend and validate UI reflects them.
 	•	Acceptance:
-	•	Sidebar loads via pagination and search; new thread creation reflected.
+	•	Frontend integration tests perform calls against the running backend started by CI/agent.
 
-Milestone 3 — Model selection & constraints UI
+Milestone 3 — Models UI & loader interactions
 	•	Tasks:
-	•	Implement model dropdown fetching GET /api/models.
-	•	Render temperature control according to temperatureType (slider or discrete toggle).
-	•	Show disabled models when user lacks API key.
-	•	For local Gemma show load status and Load action calling POST /api/models/:id/load.
-	•	Tests:
-	•	Component tests for dropdown and slider modes.
-	•	E2E tests: model selection changes UI controls.
+	•	Populate model dropdown from GET /api/models.
+	•	Implement temperature controls and model-load flow; when selecting Gemma model, frontend calls POST /api/models/gemma-2b/load and polls GET /api/models/gemma-2b/status.
+	•	Integration tests simulate model load progress (backend test-mode should support simulated progress).
 	•	Acceptance:
-	•	Model dropdown lists options and adjusts controls per model config.
+	•	Frontend integration tests can exercise model-load interactions while the backend is running in CI.
 
 Milestone 4 — Chat pane & streaming
 	•	Tasks:
-	•	Implement the chat message list (virtualized) and message input.
-	•	Implement POST /api/threads/:threadId/models/:modelId/messages call with stream=true using SSE client; render tokens as they arrive.
-	•	Show per-message metadata: tokens consumed, latency.
-	•	Add keyboard shortcuts (Cmd/Ctrl+Enter to send).
-	•	Tests:
-	•	Unit tests for SSE handling and streaming UI.
-	•	E2E test: send message and receive streamed reply (mocked).
+	•	Implement SSE client to receive streaming tokens from backend.
+	•	Integration tests verify streaming behavior: start a streaming message post and ensure tokens arrive incrementally (backend test-mode can simulate streaming).
 	•	Acceptance:
-	•	Streaming UI shows incremental tokens and finalizes assistant message in UI.
+	•	Streaming UI validated via CI/E2E.
 
-Milestone 5 — Health & model load UI
+Milestone 5 — Profile, API keys UI & other flows
 	•	Tasks:
-	•	Implement topbar health display by polling GET /api/health.
-	•	Add refresh button to re-check health.
-	•	For local model loading flow, show progress and final loaded state next to model selector.
-	•	Tests:
-	•	Component tests for health component.
-	•	E2E tests: health refresh updates UI.
+	•	Profile screen to add API keys and edit system_prompt; tests to verify UI flows and that missing API keys disable relevant models.
 	•	Acceptance:
-	•	Health status shown and refresh works; model loading progress visible.
+	•	Integration coverage for profile flows.
 
-Milestone 6 — Profile & API key management
+Milestone 6 — Health UI + deploy polish
 	•	Tasks:
-	•	Profile screen to edit system_prompt, display_name, default model/temp.
-	•	API keys screen to add/update Claude/Google/OpenAI keys (POST /api/profile/api-keys).
-	•	Validations & security (do not show raw API keys).
-	•	Tests:
-	•	Unit tests for form validations.
-	•	E2E tests: update API keys, verify models activate/deactivate accordingly.
+	•	Health indicator in topbar reads /api/health.
+	•	Version display uses VITE_APP_VERSION and a button to fetch backend /api/version.
+	•	Finalize Firebase Hosting deploy step in CI (already present from milestone 0) and any post-deploy checks.
 	•	Acceptance:
-	•	Profile changes persist and model options reflect API keys availability.
+	•	Full CI pipeline builds, tests (integration against running backend), and deploys.
 
-Milestone 7 — Summaries & title display
+Milestone 7 — Accessibility, monitoring & final E2E
 	•	Tasks:
-	•	Display per-model summaries in thread list snippets and in thread meta.
-	•	Allow forced refresh of summary via UI action (calls internal summarize endpoint).
-	•	Tests:
-	•	Component tests for summary display.
-	•	E2E: force-refresh summary and verify updated snippet.
+	•	Accessibility checks, final E2E happy-path tests.
+	•	Post-deploy smoke test to validate deployment.
 	•	Acceptance:
-	•	Summaries appear appropriately and refresh works.
-
-Milestone 8 — Polish, accessibility & deploy
-	•	Tasks:
-	•	Add responsive styles, dark mode, accessibility checks.
-	•	Finalize build pipeline: set VITE_APP_VERSION during GitHub Actions build and embed into UI.
-	•	Configure Firebase Hosting deploy step in CI.
-	•	Tests:
-	•	Accessibility audit, unit and E2E full happy path.
-	•	Acceptance:
-	•	Frontend builds, deploys to Firebase, version visible in UI.
+	•	All E2E tests pass and deployment smoke checks succeed.
 
 ⸻
+
+Cross-repo integration & agent usage patterns (how automated agent / CI should start backend for frontend tests)
+	1.	When both repos are available in CI job (monorepo or combined pipeline):
+	•	CI job builds backend, runs npm run start:ci in background or docker-compose -f docker-compose.ci.yml up -d and then runs scripts/frontend/run-integration-tests.sh with BACKEND_URL set to local address.
+	•	Use wait-for-health to ensure readiness.
+	2.	When frontend CI cannot build backend (separate pipelines):
+	•	Frontend CI can pull a test-ready backend Docker image from GHCR with a :test tag (produced by backend CI) and run via docker run or docker-compose.
+	•	Poll /api/health until ready.
+	3.	Agent-driven local dev / coding-agent (Jules) usage:
+	•	Use npm run start:test (fast mode with in-memory DB) to get quick local server with seeded data for UI tests.
+	•	For heavier local runs, run docker-compose up to simulate production-like environment.
+	4.	Readiness & stability:
+	•	The wait-for-health behavior must check db and ollama keys in /api/health. For frontend integration tests, the minimal requirement is service: ok and db.ok: true. If the test needs local Gemma, ollama.status must be loaded or test-mode must simulate the loaded state.
+
+⸻
+
+Acceptance criteria for coding-agent/start mechanism (non-negotiable)
+	•	A single documented command exists to start backend in test-mode (no external DB required) and return readiness via /api/health.
+	•	The command works both locally and in CI job environment.
+	•	The frontend CI workflow uses the documented mechanism to launch a backend instance prior to running integration/E2E tests.
+	•	The backend provides start:ci and start:test scripts and a docker-compose.ci.yml to facilitate agent usage.
+	•	All integration tests rely only on the provided start mechanism and seeded data (no manual steps).
+
+⸻
+
+TDD enforcement & CI gating
+	•	Each milestone must provide failing tests first (unit or integration).
+	•	CI will block merges if unit or integration tests (Newman/Postman) fail against the started backend instance.
+	•	The GitHub Actions job must orchestrate backend startup, health polling, test execution, build, and deploy steps in the order described — same pattern used by coding agents.
+
 
 19 — Prompt STRUCTURE skeleton (for later generation) — only the structure
 
