@@ -4,7 +4,7 @@
 
 ---
 
-## Use Cases
+## 1 — Use Cases
 
 ### Primary Use Cases
 
@@ -47,7 +47,7 @@
 
 ---
 
-## 0 — Confirmed Decisions (Single Place)
+## 2 — Confirmed Decisions
 
 - **Two repos**: backend (Node.js + TypeScript + Express) and frontend (Vite + React)
 - **Backend and Ollama** (Gemma 2 2B) will run together inside the same Cloud Run Docker container; Ollama runs as a separate process started by the container
@@ -64,9 +64,49 @@
 
 ---
 
-## 1 — Architectural Overview & Runtime Implications
+## 3 — Architectural Overview
 
-### How it runs on Cloud Run
+### High-Level Architecture
+
+The application follows a **three-tier architecture**:
+- **Frontend Layer**: React SPA with Vite bundler hosted on Firebase Hosting (CDN-distributed)
+- **Backend API Layer**: Node.js/Express server running on Google Cloud Run (containerized, auto-scaling)
+- **Data Layer**: Firebase Realtime Database (production) or MongoDB (development)
+
+**Integration Points:**
+- RESTful API communication between frontend and backend
+- Server-Sent Events (SSE) for real-time message streaming
+- Cloud Tasks for reliable background job processing
+
+### System Components
+
+#### Frontend Application (React SPA)
+- User authentication & session management with JWT cookies
+- Thread/conversation management UI with pagination
+- Model selection & configuration interface
+- Real-time message streaming with SSE client
+- Health monitoring dashboard
+
+#### Backend API Service (Node.js/Express)
+- RESTful API endpoints for all application features
+- JWT-based authentication/authorization middleware
+- Model proxy layer that routes requests to appropriate LLM providers
+- Background job worker for summarization and title generation
+- Health check and metrics endpoints
+
+#### LLM Integration Layer
+- **External providers**: Claude API, OpenAI API, Google AI API using encrypted user API keys
+- **Local model**: Ollama with Gemma 2B running in-container for privacy-sensitive tasks
+- Unified interface abstracting provider differences
+- Streaming response handling for all models
+
+#### Data Persistence Layer
+- **Primary**: Firebase Realtime Database with real-time sync capabilities
+- **Alternative**: MongoDB for local development environment
+- Encrypted API key storage using KMS-managed system keys
+- Thread, message, and user data management with cursor-based pagination
+
+### Runtime Environment - Cloud Run
 
 **The Cloud Run container image contains:**
 - The backend Node.js app
