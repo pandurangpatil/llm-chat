@@ -4,6 +4,49 @@
 
 ---
 
+## Use Cases
+
+### Primary Use Cases
+
+1. **Multi-model AI Chat Interface**
+   - Single unified interface to interact with multiple LLM providers (Claude, ChatGPT, Google AI, and local Gemma 2B)
+   - Switch between models seamlessly within the same conversation thread
+
+2. **Private/Secure AI Conversations for Organizations**
+   - Self-hosted solution for companies requiring data sovereignty and control
+   - Keep sensitive conversations on-premises with local Gemma model
+   - Encrypted storage of API keys and conversation data
+
+3. **Cost-Optimized AI Usage**
+   - Use free local Gemma 2B model for simple tasks
+   - Switch to powerful cloud models (Claude, GPT-4) only when needed
+   - Per-user API key management for cost attribution and tracking
+
+4. **Persistent Conversation Management**
+   - Long-term storage and organization of AI conversations in threads
+   - Automatic summarization to maintain context in long conversations
+   - Search and retrieve past conversations
+
+5. **Team/Enterprise AI Platform**
+   - Admin-controlled user management (no self-registration)
+   - Centralized deployment with individual user accounts
+   - Shared infrastructure with isolated user data
+
+### Key Features Supporting These Use Cases
+
+- **Per-user encrypted API key storage** - Each user manages their own API keys for different providers
+- **Thread-based conversation organization** - Separate conversation contexts for different topics/projects
+- **Automatic summarization** - Maintains context in long conversations (300-700 tokens)
+- **Model-specific conversation contexts** - Each model maintains its own conversation history within a thread
+- **Real-time streaming responses** - SSE-based streaming for responsive user experience
+- **Local model support (Ollama/Gemma 2B)** - Run models locally for privacy-sensitive tasks
+- **Health monitoring and status checks** - Real-time system health visibility in UI
+- **Cursor-based pagination** - Efficiently handle large conversation histories
+- **Flexible temperature controls** - Per-model temperature settings (sliders or toggles)
+- **Background job processing** - Automatic title generation and conversation summarization
+
+---
+
 ## 0 — Confirmed Decisions (Single Place)
 
 - **Two repos**: backend (Node.js + TypeScript + Express) and frontend (Vite + React)
