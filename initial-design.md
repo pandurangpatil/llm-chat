@@ -118,7 +118,7 @@ The application follows a **three-tier architecture**:
 - **Scaling**: Auto-scaling with scale-to-zero capability
 - **Background Jobs**: Worker processes run within the same container for summarization and title generation
 
-### Ollama Runtime (Local Model)
+#### Ollama Runtime (Local Model)
 
 **Container Configuration:**
 - The Cloud Run container image includes the Ollama binary or supervisor script
