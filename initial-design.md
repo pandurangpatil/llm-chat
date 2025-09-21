@@ -150,9 +150,114 @@ The application follows a **three-tier architecture**:
 - **Security**: Encrypted storage for sensitive data (API keys)
 - **Backup Strategy**: Regular automated backups via Firebase console
 
+### Local Development & Test Environment
+
+- Provide docker-compose for local development:
+  - Backend container built from Dockerfile; runs server and can optionally spawn Ollama locally (if developer has installed/available)
+  - For local dev use Firebase Emulator Suite
+- Use Firebase Emulator Suite for DB & auth locally
+- Provide local seed and migration scripts to prime DB for dev
+- Provide `scripts/add-user` CLI which can be run locally or as Cloud Function in production
+
 ---
 
-## 2 — Data Model & Persistence
+## 5 — System Operations & Runtime Behavior
+
+### Model Loading & Ollama Lifecycle
+
+#### API behavior
+
+**`POST /api/models/gemma-2b/load`:**
+- If model already loaded on this instance → return 200 with `loaded=true`
+- If not loaded:
+  - Start loader (spawn Ollama process if not running; download model artifacts if needed)
+  - Record status in DB `models_config[gemma-2b].runtime_status` (or a per-instance status store — we may store only global status plus instance-specific ephemeral status)
+  - Return job id and initial status, or keep connection open and stream progress updates
+
+**`GET /api/models/gemma-2b/status`:**
+- Returns current status and estimated readiness
+
+**Loader implementation:**
+- Either spawn ollama as a child process in container or call the ollama binary
+- Keep an internal process supervisor in container to restart on failure
+- Expose process logs to the streaming SSE so UI can display progress if possible
+
+#### UI:
+
+- Selecting Gemma model triggers `GET models/:id/status` and shows loading | loaded | not_loaded
+- If `not_loaded`, show a "Load" button. On click call `POST /api/models/:id/load`
+- Display progress bar if backend returns progress updates; otherwise show loading spinner and a loaded indicator when done
+
+#### Notes on scaling & cost
+
+Each new Cloud Run instance must load local model on demand. Document cost + latency. This is acceptable per requirement but needs planning for instance sizing and concurrency settings (e.g., set concurrency=1 for model-heavy instances or configure memory accordingly).
+
+### Prompt Processing & Background Jobs
+
+#### Prompt Assembly (per message)
+
+1. Fetch `user.profile.system_prompt`
+2. Fetch `thread.models[modelId].last_summary` (if present)
+3. Fetch most recent messages for the (thread,model) in reverse chronological order until the configured `CONTEXT_TOKEN_BUDGET`
+4. Append the new user message
+5. Send to model with streaming enabled if requested
+6. After assistant reply completes, process summarization inline within the API call flow
+
+#### Summarization Process
+
+- Summarization jobs are processed inline within the API call flow
+- After each assistant completion, the system immediately generates a summary using the same model
+- Summaries are ~300–700 tokens per requirement
+- Updates `threads.models[modelId].last_summary` before completing the API response
+
+#### Title Generation
+
+- After the first assistant reply for a thread+model pair, title generation is processed inline
+- Title job uses same model with a short instruction and writes `thread.title` if default
+- Completed before the API response is returned
+
+#### Job Processing
+
+- Jobs are processed synchronously within the API call to ensure completion before response
+- No external queue systems or Cloud Tasks - all processing happens inline
+- Ensures data consistency and immediate availability of summaries and titles
+
+### Pagination & Data Loading
+
+- All listing endpoints support cursor-based pagination:
+  - Request: `GET /api/threads?limit=20&cursor=<cursor>`
+  - Response: `{ items: [...], nextCursor: "abc", hasMore: true }`
+- Messages endpoint supports `limit` and `cursor` for infinite scroll. Frontend uses intersection observer to fetch next page on scroll
+- Search in `GET /api/threads?q=...` implemented server-side (title + last_summary)
+
+### Edge Cases & Operational Notes
+
+- **Model loading failures**: surface clear error to user; persist failure reason in DB; allow retry
+- **Partial responses**: mark assistant message as partial and allow client to request fill or retry
+- **Scaling/Growth**: note that per-instance model loads can multiply resource consumption; document recommended concurrency / maxInstances settings for Cloud Run
+- **Backpressure**: restrict concurrent model calls per user to protect resources
+
+### Health Monitoring & Version Display
+
+#### Health Check API
+
+`/api/health` returns:
+- `service`: `ok|degraded|down`
+- `uptime_seconds`
+- `db`: `{ ok: true/false, provider: firebase|firebase-emulator, latency_ms }`
+- `ollama`: `{ status: not_loaded|loading|loaded|error, model: gemma-2b, progress?: 0..100 }`
+- `internal_api`: `{ status: ok }`
+
+#### Version Display
+
+- Frontend displays both backend version (from `/api/version`) and frontend version (from `VITE_APP_VERSION`) in the topbar
+- Backend version endpoint: `GET /api/version` returns `{ version, build_time, commit }`
+- Version information helps track deployed builds and troubleshoot issues
+- Health status shown near version with refresh button that calls `/api/health` and updates UI
+
+---
+
+## 6 — Data Model & Persistence
 
 ### Top-level DB layout (Firebase JSON / Mongo collections)
 
@@ -177,7 +282,7 @@ The application follows a **three-tier architecture**:
 
 ---
 
-## 3 — Model Catalog + Per-model Constraints & UI Implications
+## 7 — Model Catalog + Per-model Constraints & UI Implications
 
 Store full model catalog in `models_config` in DB. Example fields relevant to UI:
 - `modelId`: e.g., `gemma-2b-local`, `claude-opus-4.1`, `gpt-4o`
@@ -196,7 +301,7 @@ Store full model catalog in `models_config` in DB. Example fields relevant to UI
 
 ---
 
-## 4 — API Endpoints (Finalized Surface)
+## 8 — API Endpoints (Finalized Surface)
 
 ### Auth & meta
 
@@ -241,77 +346,7 @@ Store full model catalog in `models_config` in DB. Example fields relevant to UI
 
 ---
 
-## 5 — Health Check Details (UI-visible)
 
-`/api/health` returns:
-- `service`: `ok|degraded|down`
-- `uptime_seconds`
-- `db`: `{ ok: true/false, provider: firebase|firebase-emulator, latency_ms }`
-- `ollama`: `{ status: not_loaded|loading|loaded|error, model: gemma-2b, progress?: 0..100 }`
-- `internal_api`: `{ status: ok }`
-
-Frontend shows status near the version in topbar with a refresh button that calls `/api/health` and updates UI.
-
----
-
-## 6 — Model Loading / Ollama Lifecycle & UI Handling
-
-### API behavior
-
-**`POST /api/models/gemma-2b/load`:**
-- If model already loaded on this instance → return 200 with `loaded=true`
-- If not loaded:
-  - Start loader (spawn Ollama process if not running; download model artifacts if needed)
-  - Record status in DB `models_config[gemma-2b].runtime_status` (or a per-instance status store — we may store only global status plus instance-specific ephemeral status)
-  - Return job id and initial status, or keep connection open and stream progress updates
-
-**`GET /api/models/gemma-2b/status`:**
-- Returns current status and estimated readiness
-
-**Loader implementation:**
-- Either spawn ollama as a child process in container or call the ollama binary
-- Keep an internal process supervisor in container to restart on failure
-- Expose process logs to the streaming SSE so UI can display progress if possible
-
-### UI:
-
-- Selecting Gemma model triggers `GET models/:id/status` and shows loading | loaded | not_loaded
-- If `not_loaded`, show a "Load" button. On click call `POST /api/models/:id/load`
-- Display progress bar if backend returns progress updates; otherwise show loading spinner and a loaded indicator when done
-
-### Notes on scaling & cost
-
-Each new Cloud Run instance must load local model on demand. Document cost + latency. This is acceptable per requirement but needs planning for instance sizing and concurrency settings (e.g., set concurrency=1 for model-heavy instances or configure memory accordingly).
-
----
-
-## 7 — Prompt Construction, Context & Summarization
-
-### Prompt assembly (per message)
-
-1. Fetch `user.profile.system_prompt`
-2. Fetch `thread.models[modelId].last_summary` (if present)
-3. Fetch most recent messages for the (thread,model) in reverse chronological order until the configured `CONTEXT_TOKEN_BUDGET`
-4. Append the new user message
-5. Send to model with streaming enabled if requested
-6. After assistant reply completes, create a summarization job entry in DB pointing to `threadId`, `modelId` for worker to process
-
-### Summarizer
-
-- Worker (runs inside same container) picks up summarization jobs (via Cloud Tasks webhook or DB polling). It calls model with summarization prompt and writes `last_summary` for the (thread,model) node
-- Summaries are ~300–700 tokens per requirement
-
----
-
-## 8 — Pagination & Frontend Lazy-load
-
-- All listing endpoints support cursor-based pagination:
-  - Request: `GET /api/threads?limit=20&cursor=<cursor>`
-  - Response: `{ items: [...], nextCursor: "abc", hasMore: true }`
-- Messages endpoint supports `limit` and `cursor` for infinite scroll. Frontend uses intersection observer to fetch next page on scroll
-- Search in `GET /api/threads?q=...` implemented server-side (title + last_summary)
-
----
 
 ## 9 — Testing Strategy (TDD + Integration)
 
@@ -430,34 +465,7 @@ Each new Cloud Run instance must load local model on demand. Document cost + lat
 
 ---
 
-## 13 — Summaries, Titles, Job Reliability (Detailed)
-
-### Summarization:
-- Each assistant completion enqueues a summarize job (persisted)
-- Worker picks up jobs and updates `threads.models[modelId].last_summary`
-
-### Title generation:
-- After the first assistant reply for a thread+model pair, enqueue title-gen job
-- Title job uses same model with a short instruction and writes `thread.title` if default
-
-### Job reliability:
-- Use DB job records + Cloud Tasks to ensure exactly-once semantics or at-least-once with idempotent job processing
-- Worker must mark job processed (status updated) after completion
-
----
-
-## 14 — Local Development & Test Environment
-
-- Provide docker-compose for local development:
-  - Backend container built from Dockerfile; runs server and can optionally spawn Ollama locally (if developer has installed/available)
-  - For local dev use Firebase Emulator Suite
-- Use Firebase Emulator Suite for DB & auth locally
-- Provide local seed and migration scripts to prime DB for dev
-- Provide `scripts/add-user` CLI which can be run locally or as Cloud Function in production
-
----
-
-## 15 — Observability & Metrics
+## 13 — Observability & Metrics
 
 - Expose metrics endpoint (Prometheus style or JSON) for:
   - Requests per endpoint, model calls, tokens consumed, worker queue depth
@@ -466,30 +474,8 @@ Each new Cloud Run instance must load local model on demand. Document cost + lat
 
 ---
 
-## 16 — Tests in CI — Postman/Newman Integration Details
 
-Postman collection contains integration tests for:
-- Auth lifecycle
-- Thread lifecycle
-- Messages streaming and finalization
-- Summarization job execution and summary existence
-- Health endpoint behavior
-
-In CI, start backend in test mode connected to Firebase Emulator Suite for Realtime Database
-- Run Newman in CI after server startup and before building/publishing images; fail the build if any integration test fails
-
----
-
-## 17 — Edge-cases & Operational Notes
-
-- **Model loading failures**: surface clear error to user; persist failure reason in DB; allow retry
-- **Partial responses**: mark assistant message as partial and allow client to request fill or retry
-- **Scaling/Growth**: note that per-instance model loads can multiply resource consumption; document recommended concurrency / maxInstances settings for Cloud Run
-- **Backpressure**: restrict concurrent model calls per user to protect resources
-
----
-
-## 18 — Implementation Approach & Incremental Milestones
+## 14 — Implementation Approach & Incremental Milestones
 
 This section describes milestone-by-milestone plans for the backend and frontend repos. Each milestone is TDD-first: write failing tests (unit / integration), implement code until tests pass, expand Postman/Newman integration tests, and ensure CI runs green.
 
@@ -760,7 +746,7 @@ How automated agent / CI should start backend for frontend tests:
 
 ---
 
-## 19 — Prompt Structure Skeleton (For Later Generation)
+## 15 — Prompt Structure Skeleton (For Later Generation)
 
 This is the template we will use later to generate Jules/engineer prompts for each repo and per milestone. We are not generating prompt content now — only the structure/sections that each prompt should contain.
 
@@ -790,7 +776,7 @@ We will reuse this structure when you ask us to generate the actual repo-specifi
 
 ---
 
-## 20 — Next Steps
+## 16 — Next Steps
 
 This design is finalized and ready. When you confirm, I will:
 
