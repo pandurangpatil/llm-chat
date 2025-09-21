@@ -192,6 +192,23 @@ The application follows a **three-tier architecture**:
 
 Each new Cloud Run instance must load local model on demand. Document cost + latency. This is acceptable per requirement but needs planning for instance sizing and concurrency settings (e.g., set concurrency=1 for model-heavy instances or configure memory accordingly).
 
+### Model Catalog & Configuration
+
+Store full model catalog in `models_config` in DB. Example fields relevant to UI:
+- `modelId`: e.g., `gemma-2b-local`, `claude-opus-4.1`, `gpt-4o`
+- `provider`: `ollama|claude|google|openai`
+- `apiKeyType`: `user_claude`, `user_google`, `user_openai`, or `none` (local)
+- `temperatureType`: `range` (min, max, step) or `enum` (e.g., [0,1]) — used by UI to render slider or fixed options
+- `requires_local_load`: boolean (true for local Gemma)
+- `display_name`, `priority`, `notes`
+
+#### UI behavior:
+
+- Model dropdown is populated from the `/api/models` API (reads `models_config`)
+- If `temperatureType` is enum with [0,1] model, the UI shows a dropdown or toggle instead of a continuous slider
+- For local Gemma (`requires_local_load=true`), UI shows load status next to model and a "Load model" button when not loaded. On load, show progress / status
+- If user hasn't provided a required API key for selected provider, the model appears disabled with a CTA to set API key in profile
+
 ### Prompt Processing & Background Jobs
 
 #### Prompt Assembly (per message)
@@ -282,26 +299,8 @@ Each new Cloud Run instance must load local model on demand. Document cost + lat
 
 ---
 
-## 7 — Model Catalog + Per-model Constraints & UI Implications
 
-Store full model catalog in `models_config` in DB. Example fields relevant to UI:
-- `modelId`: e.g., `gemma-2b-local`, `claude-opus-4.1`, `gpt-4o`
-- `provider`: `ollama|claude|google|openai`
-- `apiKeyType`: `user_claude`, `user_google`, `user_openai`, or `none` (local)
-- `temperatureType`: `range` (min, max, step) or `enum` (e.g., [0,1]) — used by UI to render slider or fixed options
-- `requires_local_load`: boolean (true for local Gemma)
-- `display_name`, `priority`, `notes`
-
-### UI behavior:
-
-- Model dropdown is populated from the `/api/models` API (reads `models_config`)
-- If `temperatureType` is enum with [0,1] model, the UI shows a dropdown or toggle instead of a continuous slider
-- For local Gemma (`requires_local_load=true`), UI shows load status next to model and a "Load model" button when not loaded. On load, show progress / status
-- If user hasn't provided a required API key for selected provider, the model appears disabled with a CTA to set API key in profile
-
----
-
-## 8 — API Endpoints (Finalized Surface)
+## 7 — API Endpoints (Finalized Surface)
 
 ### Auth & meta
 
@@ -348,7 +347,7 @@ Store full model catalog in `models_config` in DB. Example fields relevant to UI
 
 
 
-## 9 — Testing Strategy (TDD + Integration)
+## 8 — Testing Strategy (TDD + Integration)
 
 ### Unit tests (run in CI):
 - Prompt builder, token estimation, encryption utilities, small service functions
@@ -371,7 +370,7 @@ Store full model catalog in `models_config` in DB. Example fields relevant to UI
 
 ---
 
-## 10 — CI/CD (GitHub Actions) — Finalized Flow
+## 9 — CI/CD (GitHub Actions) — Finalized Flow
 
 ### Common points
 
@@ -411,7 +410,7 @@ Store full model catalog in `models_config` in DB. Example fields relevant to UI
 
 ---
 
-## 11 — Migration Scripts & DB Priming
+## 10 — Migration Scripts & DB Priming
 
 - Provide a `migrations/` folder with numbered migration files (JS) that run in sequence
 - Migration runner executes at build or on startup (controlled via env var `RUN_MIGRATIONS=true`) and can:
@@ -425,7 +424,7 @@ Store full model catalog in `models_config` in DB. Example fields relevant to UI
 
 ---
 
-## 12 — Security & Hardening Checklist
+## 11 — Security & Hardening Checklist
 
 ### Authentication:
 - JWT tokens with strong signing key stored in Secret Manager (rotate periodically)
@@ -465,7 +464,7 @@ Store full model catalog in `models_config` in DB. Example fields relevant to UI
 
 ---
 
-## 13 — Observability & Metrics
+## 12 — Observability & Metrics
 
 - Expose metrics endpoint (Prometheus style or JSON) for:
   - Requests per endpoint, model calls, tokens consumed, worker queue depth
@@ -475,7 +474,7 @@ Store full model catalog in `models_config` in DB. Example fields relevant to UI
 ---
 
 
-## 14 — Implementation Approach & Incremental Milestones
+## 13 — Implementation Approach & Incremental Milestones
 
 This section describes milestone-by-milestone plans for the backend and frontend repos. Each milestone is TDD-first: write failing tests (unit / integration), implement code until tests pass, expand Postman/Newman integration tests, and ensure CI runs green.
 
@@ -746,7 +745,7 @@ How automated agent / CI should start backend for frontend tests:
 
 ---
 
-## 15 — Prompt Structure Skeleton (For Later Generation)
+## 14 — Prompt Structure Skeleton (For Later Generation)
 
 This is the template we will use later to generate Jules/engineer prompts for each repo and per milestone. We are not generating prompt content now — only the structure/sections that each prompt should contain.
 
@@ -776,7 +775,7 @@ We will reuse this structure when you ask us to generate the actual repo-specifi
 
 ---
 
-## 16 — Next Steps
+## 15 — Next Steps
 
 This design is finalized and ready. When you confirm, I will:
 
