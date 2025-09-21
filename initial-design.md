@@ -10,7 +10,7 @@
 
 1. **Multi-model AI Chat Interface**
    - Single unified interface to interact with multiple LLM providers (Claude, ChatGPT, Google AI, and local Gemma 2B)
-   - Switch between models seamlessly within the same conversation thread
+   - Switch between models within the same thread (shared thread structure and summary, but separate conversation contexts per model)
 
 2. **Private/Secure AI Conversations for Organizations**
    - Self-hosted solution for companies requiring data sovereignty and control
@@ -43,7 +43,7 @@
 - **Health monitoring and status checks** - Real-time system health visibility in UI
 - **Cursor-based pagination** - Efficiently handle large conversation histories
 - **Flexible temperature controls** - Per-model temperature settings (sliders or toggles)
-- **Background job processing** - Automatic title generation and conversation summarization
+- **Inline async processing** - Title generation on first message (within API call) and async summarization triggered per API call (non-blocking)
 
 ---
 
@@ -55,7 +55,7 @@
 - **Per-user API keys** (Claude, Google, ChatGPT) are stored encrypted in DB (encrypted with system key stored in Secret Manager/KMS)
 - **No user registration/reset API**: an admin Cloud Function and bundled CLI utility to create/update users (password hash)
 - **Model config** (available models, mapping to which API-key type, and allowed parameter constraints) is stored in DB and exposed via API for the frontend
-- **Summarization & background jobs** run inside the same backend container (via internal job worker triggered by queues in DB or Cloud Tasks invoking the same container endpoint)
+- **Summarization & title generation** processed inline within API calls - title on first message, summarization async but triggered per call (non-blocking response)
 - **All CI/CD** done using GitHub Actions
 - **Docker images** pushed to GitHub Container Registry (GHCR). Deploy to Cloud Run from GHCR
 - **Frontend** is hosted on Firebase Hosting and deployed via GitHub Actions
@@ -76,7 +76,7 @@ The application follows a **three-tier architecture**:
 **Integration Points:**
 - RESTful API communication between frontend and backend
 - Server-Sent Events (SSE) for real-time message streaming
-- Background job processing handled inline within API call flow
+- Title generation and summarization handled within API call flow (title synchronous on first message, summarization async non-blocking)
 
 ### System Components
 
@@ -91,7 +91,7 @@ The application follows a **three-tier architecture**:
 - RESTful API endpoints for all application features
 - JWT-based authentication/authorization middleware
 - Model proxy layer that routes requests to appropriate LLM providers
-- Background job worker for summarization and title generation
+- Inline processing for title generation (first message) and async summarization (non-blocking)
 - Health check and metrics endpoints
 
 #### LLM Integration Layer
@@ -116,7 +116,7 @@ The application follows a **three-tier architecture**:
 - **Container Image**: Docker image with Node.js runtime and Express server
 - **Resource Configuration**: CPU and memory sized for concurrent request handling
 - **Scaling**: Auto-scaling with scale-to-zero capability
-- **Background Jobs**: Worker processes run within the same container for summarization and title generation
+- **Inline Processing**: Title generation and summarization handled within API request context (no separate workers)
 
 #### Ollama Runtime (Local Model)
 
@@ -209,7 +209,7 @@ Store full model catalog in `models_config` in DB. Example fields relevant to UI
 - For local Gemma (`requires_local_load=true`), UI shows load status next to model and a "Load model" button when not loaded. On load, show progress / status
 - If user hasn't provided a required API key for selected provider, the model appears disabled with a CTA to set API key in profile
 
-### Prompt Processing & Background Jobs
+### Prompt Processing & Inline Operations
 
 #### Prompt Assembly (per message)
 
@@ -218,26 +218,28 @@ Store full model catalog in `models_config` in DB. Example fields relevant to UI
 3. Fetch most recent messages for the (thread,model) in reverse chronological order until the configured `CONTEXT_TOKEN_BUDGET`
 4. Append the new user message
 5. Send to model with streaming enabled if requested
-6. After assistant reply completes, process summarization inline within the API call flow
+6. After assistant reply completes, trigger async summarization (non-blocking) for that (thread,model)
 
 #### Summarization Process
 
-- Summarization jobs are processed inline within the API call flow
-- After each assistant completion, the system immediately generates a summary using the same model
+- Summarization triggered asynchronously per API call but doesn't block response
+- After each assistant completion, async summarization begins using the same model
 - Summaries are ~300–700 tokens per requirement
-- Updates `threads.models[modelId].last_summary` before completing the API response
+- Updates `threads.models[modelId].last_summary` asynchronously
 
 #### Title Generation
 
-- After the first assistant reply for a thread+model pair, title generation is processed inline
-- Title job uses same model with a short instruction and writes `thread.title` if default
-- Completed before the API response is returned
+- Title generation happens synchronously on first user message in thread (across all models)
+- Uses same model with a short instruction and writes `thread.title` if default
+- Completed within the API response for first message
 
-#### Job Processing
+#### Inline Processing
 
-- Jobs are processed synchronously within the API call to ensure completion before response
-- No external queue systems or Cloud Tasks - all processing happens inline
-- Ensures data consistency and immediate availability of summaries and titles
+- Title generation occurs synchronously on first message in a thread
+- Summarization triggered asynchronously per API call (non-blocking)
+- No external queue systems or workers - all processing within API context
+- Manual summarization available via dedicated endpoint for user control
+- Summaries displayed in UI under respective thread/model conversations
 
 ### Pagination & Data Loading
 
@@ -272,6 +274,31 @@ Store full model catalog in `models_config` in DB. Example fields relevant to UI
 - Version information helps track deployed builds and troubleshoot issues
 - Health status shown near version with refresh button that calls `/api/health` and updates UI
 
+### User Management (Admin-only)
+
+Since there is no self-registration, user accounts are created and managed exclusively through administrative tools:
+
+#### Admin Cloud Function
+- Deployed as a separate Cloud Function with admin-only access controls
+- Accepts: `username`, `password`, optional `display_name`
+- Performs password hashing (bcrypt or similar)
+- Writes user record to database with hashed password
+- Can update existing user passwords or profile information
+- Protected by Cloud IAM - only admins can invoke
+
+#### CLI Utility (`scripts/add-user`)
+- Bundled script for local development and production admin use
+- Same functionality as Cloud Function but runs locally
+- Connects directly to database (Firebase or emulator)
+- Usage: `npm run add-user -- --username john@example.com --password <password> --display-name "John Doe"`
+- Can be run in production with appropriate Firebase credentials
+
+#### Security Considerations
+- No password reset flow - admins manually reset via Cloud Function or CLI
+- No user self-service - prevents unauthorized account creation
+- All user management operations logged for audit trail
+- Password complexity requirements enforced by admin tools
+
 ---
 
 ## 6 — Data Model & Persistence
@@ -287,8 +314,8 @@ Store full model catalog in `models_config` in DB. Example fields relevant to UI
   - Pagination-friendly (indexed by `thread_id` + `created_at`)
 - **`models_config` collection** (persisted model catalog):
   - Each model: `modelId`, `provider` (ollama|claude|google|openai), `displayName`, `apiKeyType` (which user API key to use), `temperatureOptions` (allowed values or min/max/step or enumerated options), `maxContextTokens`, `notes`
-- **`jobs` collection** (background tasks):
-  - Summarize and title jobs: `jobId`, `type` (summarize/title-gen), `thread_id`, `model_id`, `payload`, `status`, `retries`, `created_at`, `updated_at`
+- **`operations` collection** (async operation tracking):
+  - Track async operations: `operationId`, `type` (summarize), `thread_id`, `model_id`, `status`, `result`, `created_at`, `updated_at`
 - **`system` node**:
   - version metadata baked into the container; `app_start_time` etc. (but versions are packaged into the build — not written to DB by CI)
 
@@ -334,9 +361,9 @@ Store full model catalog in `models_config` in DB. Example fields relevant to UI
   - Call model (local Ollama if ollama provider; otherwise provider using decrypted user API key)
   - If `stream=true`, return SSE stream of tokens; else wait for final reply
   - Save assistant message as partial then complete
-  - Enqueue summarization job for that (thread,model)
+  - Trigger async summarization (non-blocking) for that (thread,model)
 - `PATCH /api/threads/:threadId/title` — auth required update title
-- `POST /api/threads/:threadId/models/:modelId/summarize` — internal endpoint to force summary update (invoked by worker/Cloud Tasks or admin)
+- `POST /api/threads/:threadId/models/:modelId/summarize` — User or admin endpoint to manually trigger/regenerate summary. Returns the summary text which can be displayed in UI under the thread
 
 ### Admin & utilities (invoked as Cloud Function / CLI)
 
@@ -557,7 +584,7 @@ This section describes milestone-by-milestone plans for the backend and frontend
 **Tasks:**
 - Implement prompt builder and call-proxy logic (local or remote)
 - SSE streaming for `POST /api/threads/:id/models/:model/messages`
-- Enqueue summarization jobs in DB/jobs collection
+- Trigger async summarization (non-blocking) and track in operations collection
 
 **Acceptance:**
 - Streaming API exercised by integration tests (can be mocked or actual local Ollama if the CI environment supports it)
@@ -571,11 +598,13 @@ This section describes milestone-by-milestone plans for the backend and frontend
 **Acceptance:**
 - Loader endpoint works in local dev; CI can stub or run a minimal loader
 
-#### Milestone 7 — Worker & job processing (summarization / title-gen)
+#### Milestone 7 — Inline title generation & async summarization
 
 **Tasks:**
-- Implement job worker in same container (exposed endpoint or polling loop)
-- In test-mode, worker runs synchronously or can be invoked via `POST /api/jobs/:id/execute` so coding agent/CI can execute jobs deterministically
+- Implement title generation on first message (synchronous within API call)
+- Implement async summarization triggered per API call (non-blocking)
+- Provide manual summarization endpoint for user-initiated summary regeneration
+- In test-mode, operations complete synchronously for deterministic testing
 
 **Acceptance:**
 - Summaries and titles can be generated in test environment deterministically for integration tests
