@@ -73,8 +73,8 @@ Client Request → Auth Middleware → Validation → Service Layer → Provider
 {
   "sub": "user_id",
   "username": "user@example.com",
-  "iat": 1234567890,
-  "exp": 1234567890,
+  "iat": 1705401600000,
+  "exp": 1705405200000,
   "scope": ["read", "write"]
 }
 ```
@@ -129,6 +129,30 @@ interface ModelProvider {
 - **Message Formatting**: Structured SSE messages with proper event types
 - **Error Recovery**: Automatic reconnection with exponential backoff
 - **Heartbeat**: Keep-alive messages to prevent connection timeouts
+
+### Database Watchers and Timeout Management
+
+#### Watcher Configuration
+- **Message Generation Timeout**: 30 seconds maximum per message
+- **Model Loading Timeout**: 300 seconds (5 minutes) for local model loading
+- **Health Check Timeout**: 5 seconds for external service checks
+- **Summary Generation Timeout**: 60 seconds for async summarization
+
+#### Watcher Implementation
+- **Firebase**: Real-time listeners with automatic cleanup on disconnect
+- **MongoDB**: Change streams with configurable batch size
+- **Polling Fallback**: 100ms intervals when real-time watching unavailable
+
+#### Resource Limits
+- **Max Concurrent Watchers**: 100 per backend instance
+- **Memory Limit**: 50MB total for all active watchers
+- **Connection Cleanup**: Automatic cleanup after client disconnect detection
+
+#### Error Handling
+- **Timeout Events**: Sent via SSE before connection closure
+- **Watcher Failures**: Automatic fallback to polling mode
+- **Resource Exhaustion**: Queue new watchers when limit reached
+- **DB Connection Loss**: Graceful degradation with cached responses
 
 ### Streaming Architecture
 
@@ -190,7 +214,7 @@ interface StreamingResponse {
       "expected": "number between 0 and 1"
     },
     "requestId": "req_123456789",
-    "timestamp": "2024-01-15T10:30:00Z"
+    "timestamp": 1705401800000
   }
 }
 ```
@@ -214,7 +238,7 @@ All API endpoints use RESTful conventions with JSON request/response bodies. Aut
   "success": true,
   "data": { /* endpoint-specific data */ },
   "pagination": { /* for list endpoints */ },
-  "timestamp": "2024-01-15T10:30:00Z",
+  "timestamp": 1705401800000,
   "requestId": "req_123456789"
 }
 ```
@@ -228,7 +252,7 @@ All API endpoints use RESTful conventions with JSON request/response bodies. Aut
     "message": "Human readable error message",
     "details": { /* optional error details */ }
   },
-  "timestamp": "2024-01-15T10:30:00Z",
+  "timestamp": 1705401800000,
   "requestId": "req_123456789"
 }
 ```
@@ -270,7 +294,7 @@ All API endpoints use RESTful conventions with JSON request/response bodies. Aut
       "id": "user_123",
       "username": "user@example.com",
       "displayName": "John Doe",
-      "createdAt": "2024-01-01T00:00:00Z"
+      "createdAt": 1704067200000
     },
     "expiresIn": 900
   }
@@ -349,7 +373,7 @@ All API endpoints use RESTful conventions with JSON request/response bodies. Aut
   "success": true,
   "data": {
     "version": "1.2.3",
-    "buildTime": "2024-01-15T08:00:00Z",
+    "buildTime": 1705305600000,
     "commit": "abc123def456",
     "environment": "production"
   }
@@ -373,7 +397,7 @@ All API endpoints use RESTful conventions with JSON request/response bodies. Aut
       "id": "user_123",
       "username": "user@example.com",
       "displayName": "John Doe",
-      "createdAt": "2024-01-01T00:00:00Z",
+      "createdAt": 1704067200000,
       "settings": {
         "defaultModel": "claude-opus",
         "defaultTemperature": 0.7,
@@ -382,14 +406,14 @@ All API endpoints use RESTful conventions with JSON request/response bodies. Aut
       "apiKeys": {
         "claude": {
           "configured": true,
-          "lastUsed": "2024-01-14T10:30:00Z"
+          "lastUsed": 1705232200000
         },
         "openai": {
           "configured": false
         },
         "google": {
           "configured": true,
-          "lastUsed": "2024-01-13T15:20:00Z"
+          "lastUsed": 1705154400000
         }
       }
     }
@@ -529,7 +553,7 @@ All API endpoints use RESTful conventions with JSON request/response bodies. Aut
     "status": "loaded",
     "loadProgress": 100,
     "memoryUsage": "2.1GB",
-    "lastLoaded": "2024-01-15T09:30:00Z",
+    "lastLoaded": 1705310200000,
     "estimatedLoadTime": null
   }
 }
@@ -559,14 +583,10 @@ All API endpoints use RESTful conventions with JSON request/response bodies. Aut
   "success": true,
   "data": {
     "modelId": "gemma-2b-local",
-    "jobId": "load_job_123",
-    "status": "loading",
-    "estimatedTime": 180
+    "status": "loading"
   }
 }
 ```
-
-**SSE Stream URL**: `/api/models/:modelId/load/stream?jobId=load_job_123`
 
 ## Thread Management Endpoints
 
@@ -597,17 +617,16 @@ GET /api/threads?limit=20&q=architecture&orderBy=updated_at&order=desc
       {
         "id": "thread_123",
         "title": "System Architecture Discussion",
-        "createdAt": "2024-01-14T10:00:00Z",
-        "updatedAt": "2024-01-15T10:30:00Z",
+        "createdAt": 1705230000000,
+        "updatedAt": 1705319400000,
         "messageCount": 15,
         "activeModels": ["claude-opus", "gpt-4"],
         "lastMessage": {
           "content": "That's a great approach for microservices...",
           "role": "assistant",
           "model": "claude-opus",
-          "timestamp": "2024-01-15T10:30:00Z"
-        },
-        "summary": "Discussion about microservice architecture patterns and best practices"
+          "timestamp": 1705401800000
+        }
       }
     ]
   },
@@ -622,14 +641,19 @@ GET /api/threads?limit=20&q=architecture&orderBy=updated_at&order=desc
 
 ### POST /api/threads
 
-**Description**: Create a new thread
+**Description**: Create a new thread with first message and initiate conversation
 **Authentication**: Required
 **Rate Limit**: 10 requests per minute per user
 
 #### Request
 ```json
 {
-  "title": "New Discussion Topic"
+  "title": "New Discussion Topic",
+  "firstMessage": {
+    "content": "Help me understand microservices architecture",
+    "modelId": "claude-opus",
+    "temperature": 0.7
+  }
 }
 ```
 
@@ -638,18 +662,26 @@ GET /api/threads?limit=20&q=architecture&orderBy=updated_at&order=desc
 {
   "success": true,
   "data": {
-    "thread": {
-      "id": "thread_456",
-      "title": "New Discussion Topic",
-      "createdAt": "2024-01-15T10:45:00Z",
-      "updatedAt": "2024-01-15T10:45:00Z",
-      "messageCount": 0,
-      "activeModels": [],
-      "summary": null
-    }
+    "threadId": "thread_456",
+    "userMessageId": "msg_001",
+    "assistantMessageId": "msg_002",
+    "modelId": "claude-opus",
+    "timestamp": 1705320300000
   }
 }
 ```
+
+**Behavior:**
+1. Creates new thread with provided title (or auto-generated title)
+2. Stores user's first message with `userMessageId`
+3. Creates assistant message placeholder with `assistantMessageId`
+4. Triggers async LLM API call to generate response
+5. Returns immediately with thread and message IDs
+6. Client should use `GET /api/threads/:threadId/models/:modelId/messages/:messageId` to stream the response
+
+**Optional Fields:**
+- `title`: If not provided, will be auto-generated from first message content
+- `temperature`: If not provided, uses user's default temperature setting
 
 ### GET /api/threads/:threadId
 
@@ -674,15 +706,15 @@ GET /api/threads?limit=20&q=architecture&orderBy=updated_at&order=desc
       "models": {
         "claude-opus": {
           "messageCount": 8,
-          "lastMessageAt": "2024-01-15T10:30:00Z",
+          "lastMessageAt": 1705319400000,
           "summary": "Discussion focused on microservice patterns...",
-          "summaryUpdatedAt": "2024-01-15T10:25:00Z"
+          "summaryUpdatedAt": 1705319100000
         },
         "gpt-4": {
           "messageCount": 7,
-          "lastMessageAt": "2024-01-15T09:45:00Z",
+          "lastMessageAt": 1705316700000,
           "summary": "Comparison of architectural approaches...",
-          "summaryUpdatedAt": "2024-01-15T09:40:00Z"
+          "summaryUpdatedAt": 1705316400000
         }
       }
     }
@@ -734,7 +766,7 @@ GET /api/threads?limit=20&q=architecture&orderBy=updated_at&order=desc
     "thread": {
       "id": "thread_123",
       "title": "Updated Thread Title",
-      "updatedAt": "2024-01-15T10:50:00Z"
+      "updatedAt": 1705320600000
     }
   }
 }
@@ -770,7 +802,7 @@ GET /api/threads?limit=20&q=architecture&orderBy=updated_at&order=desc
         "role": "user",
         "content": "What are the best practices for microservices?",
         "tokens": 12,
-        "createdAt": "2024-01-15T10:20:00Z",
+        "createdAt": 1705318800000,
         "status": "complete"
       },
       {
@@ -781,7 +813,7 @@ GET /api/threads?limit=20&q=architecture&orderBy=updated_at&order=desc
         "content": "Here are the key microservice patterns and best practices...",
         "tokens": 156,
         "temperature": 0.7,
-        "createdAt": "2024-01-15T10:21:00Z",
+        "createdAt": 1705318860000,
         "status": "complete"
       }
     ]
@@ -796,7 +828,7 @@ GET /api/threads?limit=20&q=architecture&orderBy=updated_at&order=desc
 
 ### POST /api/threads/:threadId/models/:modelId/messages
 
-**Description**: Send message to model and get response
+**Description**: Send message to model and initiate async response generation
 **Authentication**: Required (thread owner only)
 **Rate Limit**: 20 requests per minute per user
 
@@ -808,55 +840,82 @@ GET /api/threads?limit=20&q=architecture&orderBy=updated_at&order=desc
 ```json
 {
   "content": "Explain the benefits of event-driven architecture",
-  "temperature": 0.8,
-  "stream": true
+  "temperature": 0.8
 }
 ```
 
-#### Non-streaming Response (200)
+#### Response (201)
 ```json
 {
   "success": true,
   "data": {
-    "userMessage": {
-      "id": "msg_125",
-      "content": "Explain the benefits of event-driven architecture",
-      "createdAt": "2024-01-15T10:35:00Z"
-    },
-    "assistantMessage": {
-      "id": "msg_126",
-      "content": "Event-driven architecture offers several key benefits...",
-      "tokens": 234,
-      "temperature": 0.8,
-      "createdAt": "2024-01-15T10:35:30Z"
-    }
+    "userMessageId": "msg_125",
+    "assistantMessageId": "msg_126",
+    "threadId": "thread_123",
+    "modelId": "claude-opus",
+    "timestamp": 1705319700000
   }
 }
 ```
 
-#### Streaming Response (SSE)
-When `stream: true`, the response is sent via Server-Sent Events:
+**Behavior:**
+1. Creates and stores user message immediately with `userMessageId`
+2. Creates assistant message placeholder with `assistantMessageId`
+3. Triggers async LLM API call to generate response
+4. Stores response tokens in DB array with end-of-message marker
+5. Returns immediately with message IDs for client to track
+6. Client should use `GET /api/threads/:threadId/models/:modelId/messages/:messageId` to stream the response
 
+### GET /api/threads/:threadId/models/:modelId/messages/:messageId
+
+**Description**: Stream LLM response for a specific message (SSE endpoint)
+**Authentication**: Required (thread owner only)
+**Rate Limit**: 30 requests per minute per user
+
+**URL Parameters:**
+- `threadId`: Thread identifier
+- `modelId`: Model identifier
+- `messageId`: Assistant message identifier
+
+#### Streaming Response (SSE)
 ```
 Content-Type: text/event-stream
 Cache-Control: no-cache
 Connection: keep-alive
 
-event: message_start
-data: {"messageId": "msg_126", "timestamp": "2024-01-15T10:35:00Z"}
+event: token
+data: {"token": "Event", "messageId": "msg_126", "index": 0}
 
 event: token
-data: {"token": "Event", "messageId": "msg_126"}
+data: {"token": "-driven", "messageId": "msg_126", "index": 1}
 
 event: token
-data: {"token": "-driven", "messageId": "msg_126"}
+data: {"token": " architecture", "messageId": "msg_126", "index": 2}
 
 event: message_complete
-data: {"messageId": "msg_126", "totalTokens": 234, "timestamp": "2024-01-15T10:35:30Z"}
+data: {"messageId": "msg_126", "totalTokens": 234, "timestamp": 1705319730000, "status": "complete"}
 
 event: close
 data: {}
 ```
+
+**Behavior:**
+1. Returns any existing tokens stored in DB for the `messageId`
+2. If message is not complete (no end-of-message marker), watches DB for updates
+3. Streams new tokens as they are added to the message document
+4. Closes connection when end-of-message marker is found
+5. Includes timeout after 30 seconds if no updates received
+
+**DB Watcher Configuration:**
+- **Timeout Duration**: 30 seconds for message generation
+- **Polling Interval**: Real-time with Firebase listeners (or 100ms polling for other DBs)
+- **Max Active Watchers**: 100 per instance (to prevent resource exhaustion)
+- **Cleanup Strategy**: Automatic cleanup on timeout, completion, or client disconnect
+
+#### Error Responses
+- `404 NOT_FOUND`: Message ID not found
+- `410 GONE`: Message generation failed or timed out
+- `429 TOO_MANY_REQUESTS`: Rate limit exceeded
 
 ### POST /api/threads/:threadId/models/:modelId/summarize
 
@@ -875,7 +934,7 @@ data: {}
   "data": {
     "summary": "This conversation explored event-driven architecture patterns, discussing benefits like loose coupling, scalability, and resilience. Key topics included message queues, event sourcing, and CQRS patterns.",
     "tokens": 45,
-    "generatedAt": "2024-01-15T10:40:00Z",
+    "generatedAt": 1705320000000,
     "modelUsed": "claude-opus"
   }
 }

@@ -10,7 +10,7 @@
 
 1. **Multi-model AI Chat Interface**
    - Single unified interface to interact with multiple LLM providers (Claude, ChatGPT, Google AI, and local Gemma 2B)
-   - Switch between models within the same thread (shared thread structure and summary, but separate conversation contexts per model)
+   - Switch between models within the same thread (shared thread structure but separate conversation contexts and summaries per model)
 
 2. **Private/Secure AI Conversations for Organizations**
    - Self-hosted solution for companies requiring data sovereignty and control
@@ -214,7 +214,7 @@ Store full model catalog in `models_config` in DB. Example fields relevant to UI
 #### Prompt Assembly (per message)
 
 1. Fetch `user.profile.system_prompt`
-2. Fetch `thread.models[modelId].last_summary` (if present)
+2. Fetch `thread.models[modelId].summary` (if present)
 3. Fetch most recent messages for the (thread,model) in reverse chronological order until the configured `CONTEXT_TOKEN_BUDGET`
 4. Append the new user message
 5. Send to model with streaming enabled if requested
@@ -225,7 +225,7 @@ Store full model catalog in `models_config` in DB. Example fields relevant to UI
 - Summarization triggered asynchronously per API call but doesn't block response
 - After each assistant completion, async summarization begins using the same model
 - Summaries are ~300–700 tokens per requirement
-- Updates `threads.models[modelId].last_summary` asynchronously
+- Updates `threads.models[modelId].summary` asynchronously
 
 #### Title Generation
 
@@ -247,7 +247,7 @@ Store full model catalog in `models_config` in DB. Example fields relevant to UI
   - Request: `GET /api/threads?limit=20&cursor=<cursor>`
   - Response: `{ items: [...], nextCursor: "abc", hasMore: true }`
 - Messages endpoint supports `limit` and `cursor` for infinite scroll. Frontend uses intersection observer to fetch next page on scroll
-- Search in `GET /api/threads?q=...` implemented server-side (title + last_summary)
+- Search in `GET /api/threads?q=...` implemented server-side (title + model summaries)
 
 ### Edge Cases & Operational Notes
 
@@ -255,6 +255,15 @@ Store full model catalog in `models_config` in DB. Example fields relevant to UI
 - **Partial responses**: mark assistant message as partial and allow client to request fill or retry
 - **Scaling/Growth**: note that per-instance model loads can multiply resource consumption; document recommended concurrency / maxInstances settings for Cloud Run
 - **Backpressure**: restrict concurrent model calls per user to protect resources
+
+### Database Watcher Timeouts
+
+- **Message Generation**: 30 second timeout for LLM response generation
+- **Model Loading**: 300 second (5 minute) timeout for local model loading operations
+- **Summary Generation**: 60 second timeout for async summarization tasks
+- **Health Checks**: 5 second timeout for external service health verification
+- **Connection Cleanup**: Automatic cleanup of orphaned watchers after client disconnect
+- **Resource Limits**: Maximum 100 concurrent watchers per backend instance
 
 ### Health Monitoring & Version Display
 
@@ -324,7 +333,7 @@ This section covers the complete backend architecture including Node.js/Express 
 - **`users` collection** (or node): user profile, pwd hash, display data, encrypted API keys, default model settings
 - **`threads` collection**:
   - `id`, `user_id`, `title`, `created_at`, `updated_at`, `meta…`
-  - `models` (dictionary or separate collection reference): for each supported model id, there is model-specific metadata (e.g., `modelId`, `loaded_status`, `last_summary`, `updated_at`)
+  - `models` (dictionary or separate collection reference): for each supported model id, there is model-specific metadata (e.g., `modelId`, `loaded_status`, `summary`, `summary_updated_at`, `last_message_at`, `message_count`)
 - **`messages` collection** (separate collection):
   - Each message: `id`, `thread_id`, `model_id`, `role` (user|assistant|system), `content`, `tokens`, `status` (partial|complete|failed), `created_at`, `updated_at`
   - Pagination-friendly (indexed by `thread_id` + `created_at`)

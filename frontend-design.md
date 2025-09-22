@@ -395,7 +395,7 @@ interface AppState {
     backend: 'online' | 'offline';
     database: 'online' | 'offline';
     ollama: 'ready' | 'loading' | 'error' | 'not_loaded';
-    lastCheck: Date | null;
+    lastCheck: number | null; // epoch timestamp
     checkHealth: () => Promise<void>;
   };
 }
