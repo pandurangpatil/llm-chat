@@ -68,6 +68,7 @@ interface UserDocument {
     defaultModel: string;        // Default model ID
     defaultTemperature: number;  // Default temperature (0-1)
     systemPrompt: string;        // User's default system prompt
+    summarizationInterval: number; // Number of messages before auto-summarization (default: 10)
   };
 
   // Encrypted API Keys
@@ -111,6 +112,7 @@ interface ThreadDocument {
       summary?: string;          // AI-generated summary (300-700 tokens)
       summaryUpdatedAt?: number; // Summary generation timestamp
       summaryTokens?: number;    // Token count of summary
+      summaryJobStatus?: 'pending' | 'generating' | 'complete' | 'failed'; // Summarization job status
       lastTemperature?: number;  // Last used temperature
       totalTokensUsed: number;   // Total tokens consumed
       status: 'active' | 'archived' | 'error';
@@ -159,6 +161,10 @@ interface MessageDocument {
     timestamp: number;           // Error occurrence time
     retryCount: number;          // Number of retry attempts
   };
+
+  // Summarization tracking
+  triggeredSummarization?: boolean;  // Whether this message triggered auto-summarization
+  summarizationJobId?: string;       // Reference to summarization job (for tracking)
 
   // Timestamps
   createAt: number;              // Message creation time (epoch)

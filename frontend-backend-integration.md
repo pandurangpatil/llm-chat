@@ -145,7 +145,59 @@ sequenceDiagram
     API-->>-UI: Close SSE connection
 ```
 
-## 5. Model Loading Flow
+## 5. Async Summarization Flow
+
+```mermaid
+sequenceDiagram
+    participant API as Backend API
+    participant DB as Database
+    participant LLM as LLM Provider
+    participant Summary as Summarization Service
+
+    Note over API,Summary: Triggered after assistant message completion
+
+    API->>API: Message generation complete
+    API->>+DB: Get thread message count for model
+    DB-->>-API: messageCount: 15
+
+    API->>+DB: Get user summarization interval
+    DB-->>-API: interval: 10 (default configurable)
+
+    API->>API: Check if messageCount % interval == 0
+
+    alt Summarization needed (count divisible by interval)
+        API->>+Summary: Trigger async summarization
+        Note over Summary: Non-blocking async process
+
+        par Async Summarization Process
+            Summary->>+DB: Fetch recent messages for thread+model
+            DB-->>-Summary: Last 20 messages context
+
+            Summary->>Summary: Build summarization prompt
+            Note over Summary: "Summarize this conversation in 300-700 tokens..."
+
+            Summary->>+LLM: Generate summary (same model as conversation)
+            LLM-->>-Summary: Generated summary text
+
+            Summary->>+DB: Update thread.models[modelId].summary
+            DB-->>-Summary: Summary updated
+
+            Summary->>+DB: Update summaryUpdatedAt timestamp
+            DB-->>-Summary: Timestamp updated
+
+            Summary->>Summary: Log summarization completion
+        end
+
+        API-->>API: Continue with normal response
+        Note over API: Summarization runs in background
+
+    else No summarization needed
+        API->>API: Skip summarization
+        Note over API: Continue with normal response
+    end
+```
+
+## 6. Model Loading Flow
 
 ```mermaid
 sequenceDiagram
@@ -182,7 +234,7 @@ sequenceDiagram
     UI->>UI: Enable model for selection
 ```
 
-## 6. Error Handling and Timeouts
+## 7. Error Handling and Timeouts
 
 ```mermaid
 sequenceDiagram
@@ -231,7 +283,57 @@ sequenceDiagram
     end
 ```
 
-## 7. Frontend State Management Integration
+## 8. Data Model for Async Summarization
+
+### User Settings Extension
+
+```typescript
+interface UserDocument {
+  // ... existing fields
+  settings: {
+    defaultModel: string;
+    defaultTemperature: number;
+    systemPrompt: string;
+    summarizationInterval: number; // NEW: Default 10 messages
+  };
+}
+```
+
+### Message Document Structure (Updated)
+
+```typescript
+interface MessageDocument {
+  // ... existing fields
+
+  // Summarization tracking
+  triggeredSummarization?: boolean;  // NEW: Track if this message triggered summarization
+  summarizationJobId?: string;       // NEW: Track async summarization job
+}
+```
+
+### Thread Document Structure (Enhanced)
+
+```typescript
+interface ThreadDocument {
+  // ... existing fields
+
+  models: {
+    [modelId: string]: {
+      messageCount: number;
+      lastMessageAt: number;
+      summary?: string;
+      summaryUpdatedAt?: number;
+      summaryTokens?: number;
+      summaryJobStatus?: 'pending' | 'generating' | 'complete' | 'failed'; // NEW
+      lastTemperature?: number;
+      totalTokensUsed: number;
+      status: 'active' | 'archived' | 'error';
+    };
+  };
+}
+```
+
+## 9. Frontend State Management Integration
 
 ### Zustand Store Updates
 
@@ -297,7 +399,7 @@ class MessageStreamClient {
 }
 ```
 
-## 8. Performance Considerations
+## 10. Performance Considerations
 
 ### Connection Management
 - Limit concurrent SSE connections per user (max 3)
@@ -312,7 +414,7 @@ class MessageStreamClient {
 - Deregister DB watchers on completion, disconnect, or timeout
 - Track active watchers to prevent resource exhaustion
 
-## 10. Testing Strategy
+## 11. Testing Strategy
 
 ### Integration Tests
 - Mock LLM providers for deterministic responses
@@ -326,7 +428,7 @@ class MessageStreamClient {
 - Network failure recovery
 - Performance under load
 
-## 11. Security Considerations
+## 12. Security Considerations
 
 ### SSE Security
 - JWT validation on SSE connections

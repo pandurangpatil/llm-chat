@@ -236,6 +236,7 @@ The frontend consists of 5 main pages, focusing on core functionality with a str
 │ │ │ Default Model: [Claude Opus ▼]                     │ │ │
 │ │ │ Default Temperature: [██████░░░░] 0.7               │ │ │
 │ │ │ Streaming Enabled: ☑️                              │ │ │
+│ │ │ Auto-Summarize After: [10] messages                │ │ │
 │ │ └─────────────────────────────────────────────────────┘ │ │
 │ └─────────────────────────────────────────────────────────┘ │
 │ ┌─────────────────────────────────────────────────────────┐ │
@@ -263,7 +264,7 @@ The frontend consists of 5 main pages, focusing on core functionality with a str
 
 #### Components
 - `UserInfoCard`: Display name editing, read-only username
-- `DefaultSettingsCard`: Model and temperature preferences
+- `DefaultSettingsCard`: Model, temperature, and summarization preferences
 - `SystemPromptEditor`: Large text area with character counting
 - `APIKeyManager`: Masked key display with configuration status
 

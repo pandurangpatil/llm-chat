@@ -52,10 +52,13 @@ Client Request → Auth Middleware → Validation → Service Layer → Provider
 
 ### Summarization Service (`SummarizationService`)
 
-- **Async Processing**: Non-blocking summarization triggered per conversation
+- **Configurable Triggers**: Auto-summarization after N messages (configurable per user, default: 10)
+- **Async Processing**: Non-blocking summarization triggered per conversation completion
 - **Context-Aware**: Uses conversation history to generate relevant summaries
 - **Token Optimization**: Maintains summaries within 300-700 token range
+- **Same Model Usage**: Uses the same model that was used in the conversation for summarization
 - **Fallback Handling**: Graceful degradation when summarization fails
+- **Job Tracking**: Tracks summarization job status (pending/generating/complete/failed)
 
 ### Health Monitoring Service (`HealthService`)
 
@@ -401,7 +404,8 @@ All API endpoints use RESTful conventions with JSON request/response bodies. Aut
       "settings": {
         "defaultModel": "claude-opus",
         "defaultTemperature": 0.7,
-        "systemPrompt": "You are a helpful assistant..."
+        "systemPrompt": "You are a helpful assistant...",
+        "summarizationInterval": 10
       },
       "apiKeys": {
         "claude": {
@@ -434,7 +438,8 @@ All API endpoints use RESTful conventions with JSON request/response bodies. Aut
   "settings": {
     "defaultModel": "gpt-4",
     "defaultTemperature": 0.8,
-    "systemPrompt": "You are an expert coding assistant..."
+    "systemPrompt": "You are an expert coding assistant...",
+    "summarizationInterval": 15
   }
 }
 ```
@@ -451,7 +456,8 @@ All API endpoints use RESTful conventions with JSON request/response bodies. Aut
       "settings": {
         "defaultModel": "gpt-4",
         "defaultTemperature": 0.8,
-        "systemPrompt": "You are an expert coding assistant..."
+        "systemPrompt": "You are an expert coding assistant...",
+        "summarizationInterval": 15
       }
     }
   }
