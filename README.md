@@ -334,7 +334,7 @@ Since there is no self-registration, user accounts are created and managed exclu
 
 ## 6 — Frontend Implementation Specifications
 
-**See:** [frontend-implementation.md](./frontend-implementation.md)
+**See:** [frontend-implementation.md](./frontend-design.md)
 
 This section covers the complete frontend architecture including React component structure, Material-UI integration, state management with Zustand, detailed page specifications, responsive design strategy, and performance optimizations.
 
@@ -342,7 +342,7 @@ This section covers the complete frontend architecture including React component
 
 ## 7 — Backend Architecture & Implementation
 
-**See:** [backend-implementation.md](./backend-implementation.md)
+**See:** [backend-implementation.md](./backend-design.md)
 
 This section covers the complete backend architecture including Node.js/Express service design, authentication with JWT, model integration layer, real-time communication via SSE, comprehensive API endpoint specifications, security implementation, and performance optimizations.
 
