@@ -2,6 +2,17 @@
 
 The frontend follows a **component-driven architecture** using React with TypeScript and Material-UI, organized in layers.
 
+## Table of Contents
+
+1. [Application Structure](#1-application-structure)
+2. [Navigation Structure & Routes](#2-navigation-structure--routes)
+3. [Detailed Page Specifications](#3-detailed-page-specifications)
+4. [Component Library Specifications](#4-component-library-specifications)
+5. [State Management Approach](#5-state-management-approach)
+6. [User Interaction Flows](#6-user-interaction-flows)
+7. [Responsive Design Strategy](#7-responsive-design-strategy)
+8. [Performance Optimizations](#8-performance-optimizations)
+
 ## 1. Application Structure
 
 The frontend uses a structured approach to organization and component hierarchy.

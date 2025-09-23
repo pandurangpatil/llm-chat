@@ -2,6 +2,19 @@
 
 The backend follows a **layered service architecture** built on Node.js with Express, designed for scalability, maintainability, and integration with multiple LLM providers. The architecture emphasizes clean separation of concerns, robust error handling, and real-time communication capabilities.
 
+## Table of Contents
+
+1. [Core Architecture Principles](#1-core-architecture-principles)
+2. [Request Processing Pipeline](#2-request-processing-pipeline)
+3. [Core Services & Components](#3-core-services--components)
+4. [Authentication & Authorization](#4-authentication--authorization)
+5. [Model Integration Layer](#5-model-integration-layer)
+6. [Real-time Communication](#6-real-time-communication)
+7. [Performance Optimization](#7-performance-optimization)
+8. [Security Implementation](#8-security-implementation)
+9. [Error Handling & Logging](#9-error-handling--logging)
+10. [API Endpoints (Comprehensive Specification)](#10-api-endpoints-comprehensive-specification)
+
 ## 1. Core Architecture Principles
 
 - **Service-oriented design**: Each major feature area is encapsulated in dedicated service classes

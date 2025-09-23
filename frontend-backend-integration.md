@@ -2,6 +2,21 @@
 
 This document outlines the integration patterns between the frontend and backend systems, including sequence diagrams for key user flows and technical implementation details.
 
+## Table of Contents
+
+1. [Core Integration Patterns](#1-core-integration-patterns)
+2. [Authentication Flow](#2-authentication-flow)
+3. [New Thread Creation with First Message](#3-new-thread-creation-with-first-message)
+4. [Continuing Conversation](#4-continuing-conversation)
+5. [Async Summarization Flow](#5-async-summarization-flow)
+6. [Model Loading Flow](#6-model-loading-flow)
+7. [Error Handling and Timeouts](#7-error-handling-and-timeouts)
+8. [Data Model for Async Summarization](#8-data-model-for-async-summarization)
+9. [Frontend State Management Integration](#9-frontend-state-management-integration)
+10. [Performance Considerations](#10-performance-considerations)
+11. [Testing Strategy](#11-testing-strategy)
+12. [Security Considerations](#12-security-considerations)
+
 ## 1. Core Integration Patterns
 
 The system uses an **async streaming architecture** where:

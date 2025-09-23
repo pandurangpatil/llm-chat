@@ -2,6 +2,25 @@
 
 **Single-container Cloud Run backend + Vite/React frontend (two repos)**
 
+## Table of Contents
+
+1. [Use Cases](#1--use-cases)
+2. [Confirmed Decisions](#2--confirmed-decisions)
+3. [Architectural Overview](#3--architectural-overview)
+4. [Infrastructure Setup](#4--infrastructure-setup)
+5. [System Operations & Runtime Behavior](#5--system-operations--runtime-behavior)
+6. [Frontend Implementation Specifications](#6--frontend-implementation-specifications)
+7. [Backend Architecture & Implementation](#7--backend-architecture--implementation)
+8. [Data Model & Persistence](#8--data-model--persistence)
+9. [Testing Strategy (TDD + Integration)](#9--testing-strategy-tdd--integration)
+10. [CI/CD (GitHub Actions) — Finalized Flow](#10--cicd-github-actions--finalized-flow)
+11. [Migration Scripts & DB Priming](#11--migration-scripts--db-priming)
+12. [Security & Hardening Checklist](#12--security--hardening-checklist)
+13. [Observability & Metrics](#13--observability--metrics)
+14. [Implementation Approach & Incremental Milestones](#14--implementation-approach--incremental-milestones)
+15. [Prompt Structure Skeleton (For Later Generation)](#15--prompt-structure-skeleton-for-later-generation)
+16. [Next Steps](#16--next-steps)
+
 ---
 
 ## 1 — Use Cases
