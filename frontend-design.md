@@ -408,13 +408,16 @@ Key user journeys and their implementation patterns.
 ### Thread Creation & Message Flow
 
 1. User clicks "New Thread" in sidebar
-2. `createThread()` API call creates thread with default title
-3. User redirected to `/threads/:threadId`
-4. Model selector populated from available models
-5. User types message and selects model
-6. `sendMessage()` initiates streaming response
-7. Real-time token updates via SSE
-8. Message saved and thread updated
+2. User types first message and selects model
+3. `createThread()` API call:
+   - Stores message data in DB
+   - Initiates async LLM call for response
+   - Generates 3-word title using local Ollama (synchronous)
+   - Returns thread ID, message IDs, and generated title
+4. User redirected to `/threads/:threadId` with generated title
+5. SSE connection established to stream assistant response
+6. Real-time token updates via DB watcher
+7. Thread updated when response complete
 
 ### Model Loading Flow
 

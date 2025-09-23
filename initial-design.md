@@ -43,7 +43,7 @@
 - **Health monitoring and status checks** - Real-time system health visibility in UI
 - **Cursor-based pagination** - Efficiently handle large conversation histories
 - **Flexible temperature controls** - Per-model temperature settings (sliders or toggles)
-- **Inline async processing** - Title generation on first message (within API call) and async summarization triggered per API call (non-blocking)
+- **Inline async processing** - Synchronous title generation using local Ollama (3-word summary from first message) and async summarization triggered per API call (non-blocking)
 
 ---
 
@@ -55,7 +55,7 @@
 - **Per-user API keys** (Claude, Google, ChatGPT) are stored encrypted in DB (encrypted with system key stored in Secret Manager/KMS)
 - **No user registration/reset API**: an admin Cloud Function and bundled CLI utility to create/update users (password hash)
 - **Model config** (available models, mapping to which API-key type, and allowed parameter constraints) is stored in DB and exposed via API for the frontend
-- **Summarization & title generation** processed inline within API calls - title on first message, summarization async but triggered per call (non-blocking response)
+- **Summarization & title generation** processed inline within API calls - synchronous title generation using local Ollama (3-word summary), summarization async but triggered per call (non-blocking response)
 - **All CI/CD** done using GitHub Actions
 - **Docker images** pushed to GitHub Container Registry (GHCR). Deploy to Cloud Run from GHCR
 - **Frontend** is hosted on Firebase Hosting and deployed via GitHub Actions
@@ -76,7 +76,7 @@ The application follows a **three-tier architecture**:
 **Integration Points:**
 - RESTful API communication between frontend and backend
 - Server-Sent Events (SSE) for real-time message streaming
-- Title generation and summarization handled within API call flow (title synchronous on first message, summarization async non-blocking)
+- Title generation and summarization handled within API call flow (synchronous title generation using local Ollama for 3-word summary, summarization async non-blocking)
 
 ### System Components
 
@@ -91,7 +91,7 @@ The application follows a **three-tier architecture**:
 - RESTful API endpoints for all application features
 - JWT-based authentication/authorization middleware
 - Model proxy layer that routes requests to appropriate LLM providers
-- Inline processing for title generation (first message) and async summarization (non-blocking)
+- Inline processing for synchronous title generation using local Ollama (3-word summary) and async summarization (non-blocking)
 - Health check and metrics endpoints
 
 #### LLM Integration Layer
@@ -116,7 +116,7 @@ The application follows a **three-tier architecture**:
 - **Container Image**: Docker image with Node.js runtime and Express server
 - **Resource Configuration**: CPU and memory sized for concurrent request handling
 - **Scaling**: Auto-scaling with scale-to-zero capability
-- **Inline Processing**: Title generation and summarization handled within API request context (no separate workers)
+- **Inline Processing**: Synchronous title generation using local Ollama and async summarization handled within API request context (no separate workers)
 
 #### Ollama Runtime (Local Model)
 
@@ -229,13 +229,14 @@ Store full model catalog in `models_config` in DB. Example fields relevant to UI
 
 #### Title Generation
 
-- Title generation happens synchronously on first user message in thread (across all models)
-- Uses same model with a short instruction and writes `thread.title` if default
-- Completed within the API response for first message
+- Title generation happens synchronously during thread creation using local Ollama
+- Generates 3-word summary from first user message content
+- Completed within the API response for thread creation (after async LLM call initiation)
+- Uses local Ollama for fast processing without external API dependency
 
 #### Inline Processing
 
-- Title generation occurs synchronously on first message in a thread
+- Title generation occurs synchronously using local Ollama during thread creation (3-word summary)
 - Summarization triggered asynchronously per API call (non-blocking)
 - No external queue systems or workers - all processing within API context
 - Manual summarization available via dedicated endpoint for user control
@@ -264,6 +265,8 @@ Store full model catalog in `models_config` in DB. Example fields relevant to UI
 - **Health Checks**: 5 second timeout for external service health verification
 - **Connection Cleanup**: Automatic cleanup of orphaned watchers after client disconnect
 - **Resource Limits**: Maximum 100 concurrent watchers per backend instance
+- **Watcher Deregistration**: DB watchers are deregistered when message is complete, SSE connection closes, or timeout occurs
+- **Resource Management**: Explicit cleanup prevents memory leaks and ensures proper resource management
 
 ### Health Monitoring & Version Display
 
@@ -579,13 +582,15 @@ This section describes milestone-by-milestone plans for the backend and frontend
 #### Milestone 7 — Inline title generation & async summarization
 
 **Tasks:**
-- Implement title generation on first message (synchronous within API call)
+- Implement synchronous title generation using local Ollama (3-word summary from first message)
 - Implement async summarization triggered per API call (non-blocking)
 - Provide manual summarization endpoint for user-initiated summary regeneration
+- Implement DB watcher deregistration on message completion or connection close
 - In test-mode, operations complete synchronously for deterministic testing
 
 **Acceptance:**
 - Summaries and titles can be generated in test environment deterministically for integration tests
+- DB watchers properly deregister to prevent resource leaks
 
 #### Milestone 8 — Health, metrics, security
 

@@ -663,6 +663,7 @@ GET /api/threads?limit=20&q=architecture&orderBy=updated_at&order=desc
   "success": true,
   "data": {
     "threadId": "thread_456",
+    "title": "Microservices Architecture Help",
     "userMessageId": "msg_001",
     "assistantMessageId": "msg_002",
     "modelId": "claude-opus",
@@ -672,12 +673,15 @@ GET /api/threads?limit=20&q=architecture&orderBy=updated_at&order=desc
 ```
 
 **Behavior:**
-1. Creates new thread with provided title (or auto-generated title)
+1. Creates new thread in database
 2. Stores user's first message with `userMessageId`
 3. Creates assistant message placeholder with `assistantMessageId`
-4. Triggers async LLM API call to generate response
-5. Returns immediately with thread and message IDs
-6. Client should use `GET /api/threads/:threadId/models/:modelId/messages/:messageId` to stream the response
+4. **ASYNC**: Initiates LLM API call to generate response (fire-and-forget)
+   - Background consumer stores response tokens in DB array as they stream in
+   - Marks message status as 'complete' when response is fully received
+5. **SYNC**: Calls local Ollama to generate 3-word title from first message content
+6. Returns with thread ID, generated title, and message IDs
+7. Client should use `GET /api/threads/:threadId/models/:modelId/messages/:messageId` to stream the response
 
 **Optional Fields:**
 - `title`: If not provided, will be auto-generated from first message content
@@ -861,10 +865,16 @@ GET /api/threads?limit=20&q=architecture&orderBy=updated_at&order=desc
 **Behavior:**
 1. Creates and stores user message immediately with `userMessageId`
 2. Creates assistant message placeholder with `assistantMessageId`
-3. Triggers async LLM API call to generate response
-4. Stores response tokens in DB array with end-of-message marker
-5. Returns immediately with message IDs for client to track
-6. Client should use `GET /api/threads/:threadId/models/:modelId/messages/:messageId` to stream the response
+3. **ASYNC** (single flow, fire-and-forget):
+   - Fetches user system prompt
+   - Fetches thread summary for the model
+   - Fetches recent messages to build context
+   - Applies token budget constraints
+   - Calls LLM API with assembled context
+   - Background consumer stores response tokens in DB array as they stream in
+   - Marks message status as 'complete' when response is fully received
+4. Returns immediately with message IDs for client to track
+5. Client should use `GET /api/threads/:threadId/models/:modelId/messages/:messageId` to stream the response
 
 ### GET /api/threads/:threadId/models/:modelId/messages/:messageId
 
@@ -900,17 +910,22 @@ data: {}
 ```
 
 **Behavior:**
-1. Returns any existing tokens stored in DB for the `messageId`
-2. If message is not complete (no end-of-message marker), watches DB for updates
-3. Streams new tokens as they are added to the message document
-4. Closes connection when end-of-message marker is found
-5. Includes timeout after 30 seconds if no updates received
+1. Returns any existing tokens stored in DB for the `messageId` immediately
+2. If message is not complete (status != 'complete'), registers DB watcher for updates
+3. Streams new tokens as they are added to the message document array
+4. **Deregisters DB watcher** when:
+   - Message status becomes 'complete' (all tokens received)
+   - Client closes SSE connection
+   - 30-second timeout occurs
+   - Error occurs during streaming
+5. Closes SSE connection after watcher deregistration
 
 **DB Watcher Configuration:**
 - **Timeout Duration**: 30 seconds for message generation
 - **Polling Interval**: Real-time with Firebase listeners (or 100ms polling for other DBs)
 - **Max Active Watchers**: 100 per instance (to prevent resource exhaustion)
-- **Cleanup Strategy**: Automatic cleanup on timeout, completion, or client disconnect
+- **Cleanup Strategy**: Explicit deregistration on completion, disconnect, timeout, or error
+- **Resource Management**: Automatic cleanup prevents memory leaks and zombie watchers
 
 #### Error Responses
 - `404 NOT_FOUND`: Message ID not found
