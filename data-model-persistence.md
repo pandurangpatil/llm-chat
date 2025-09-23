@@ -31,9 +31,7 @@ Database Root
 ├── users/                    # User profiles and encrypted API keys
 ├── threads/                  # Conversation threads with metadata
 ├── messages/                 # Individual messages (separate collection)
-├── models_config/            # Model catalog and configuration
-├── operations/               # Async operation tracking
-└── system/                   # Application metadata and version info
+└── models_config/            # Model catalog and configuration
 ```
 
 ### Design Principles
@@ -61,8 +59,8 @@ interface UserDocument {
   passwordHash: string;          // bcrypt hashed password
 
   // Timestamps
-  createdAt: number;             // Epoch timestamp
-  updatedAt: number;             // Last profile update
+  createAt: number;              // Creation timestamp (epoch)
+  updateAt: number;              // Last update timestamp (epoch)
   lastLoginAt?: number;          // Last successful login
 
   // Settings
@@ -70,8 +68,6 @@ interface UserDocument {
     defaultModel: string;        // Default model ID
     defaultTemperature: number;  // Default temperature (0-1)
     systemPrompt: string;        // User's default system prompt
-    streamingEnabled: boolean;   // Streaming preference
-    theme?: 'light' | 'dark';    // UI theme preference
   };
 
   // Encrypted API Keys
@@ -79,37 +75,16 @@ interface UserDocument {
     claude?: {
       encryptedKey: string;      // AES-256-GCM encrypted
       keyHash: string;           // SHA-256 hash for verification
-      lastUsed?: number;         // Last usage timestamp
-      isValid: boolean;          // Last validation result
     };
     openai?: {
       encryptedKey: string;
       keyHash: string;
-      lastUsed?: number;
-      isValid: boolean;
     };
     google?: {
       encryptedKey: string;
       keyHash: string;
-      lastUsed?: number;
-      isValid: boolean;
     };
   };
-
-  // Usage tracking
-  usage: {
-    totalThreads: number;        // Total threads created
-    totalMessages: number;       // Total messages sent
-    totalTokens: number;         // Total tokens consumed
-    lastActiveAt: number;        // Last activity timestamp
-  };
-
-  // Account status
-  status: 'active' | 'suspended' | 'deleted';
-  suspensionReason?: string;
-
-  // Version tracking
-  schemaVersion: number;         // For schema evolution
 }
 ```
 
@@ -125,8 +100,8 @@ interface ThreadDocument {
 
   // Basic metadata
   title: string;                 // Thread title (auto-generated or user-set)
-  createdAt: number;             // Creation timestamp
-  updatedAt: number;             // Last activity timestamp
+  createAt: number;              // Creation timestamp (epoch)
+  updateAt: number;              // Last activity timestamp (epoch)
 
   // Model-specific tracking
   models: {
@@ -141,28 +116,6 @@ interface ThreadDocument {
       status: 'active' | 'archived' | 'error';
     };
   };
-
-  // Thread statistics
-  totalMessages: number;         // Total across all models
-  activeModels: string[];        // List of models with messages
-
-  // Thread settings
-  settings: {
-    isArchived: boolean;         // User archived status
-    isPinned: boolean;           // Pinned to top of list
-    tags?: string[];             // User-defined tags
-    color?: string;              // UI color coding
-  };
-
-  // Sharing and collaboration (future)
-  sharing?: {
-    isPublic: boolean;
-    shareToken?: string;
-    allowedUsers?: string[];
-  };
-
-  // Version tracking
-  schemaVersion: number;
 }
 ```
 
@@ -207,19 +160,9 @@ interface MessageDocument {
     retryCount: number;          // Number of retry attempts
   };
 
-  // Metadata
-  createdAt: number;             // Message creation time
-  updatedAt: number;             // Last update time
-
-  // Message quality and feedback
-  feedback?: {
-    rating: 1 | 2 | 3 | 4 | 5;   // User rating
-    helpful: boolean;            // Helpful flag
-    comments?: string;           // User feedback
-  };
-
-  // Version tracking
-  schemaVersion: number;
+  // Timestamps
+  createAt: number;              // Message creation time (epoch)
+  updateAt: number;              // Last update time (epoch)
 }
 ```
 
@@ -238,32 +181,6 @@ interface ModelConfigDocument {
   apiKeyType?: 'claude' | 'openai' | 'google' | null; // null for local models
   requiresApiKey: boolean;
 
-  // Model capabilities
-  capabilities: {
-    text: boolean;               // Text generation
-    reasoning: boolean;          // Complex reasoning
-    coding: boolean;             // Code generation
-    analysis: boolean;           // Data analysis
-    vision?: boolean;            // Image understanding (future)
-    function_calling?: boolean;  // Function/tool calling
-  };
-
-  // Technical specifications
-  specs: {
-    contextLength: number;       // Maximum context tokens
-    maxOutputTokens?: number;    // Maximum output tokens
-    inputTokenCost?: number;     // Cost per 1K input tokens (USD)
-    outputTokenCost?: number;    // Cost per 1K output tokens (USD)
-    currency: 'USD';             // Cost currency
-
-    // Local model specific
-    modelSize?: string;          // "2B", "7B", "13B"
-    quantization?: string;       // "Q4_0", "Q8_0", etc.
-    memoryRequirement?: number;  // GB of RAM required
-    diskSpace?: number;          // GB of disk space
-    loadTimeEstimate?: number;   // Seconds to load
-  };
-
   // UI configuration
   ui: {
     temperatureType: 'range' | 'enum';
@@ -280,208 +197,12 @@ interface ModelConfigDocument {
     category: 'cloud' | 'local' | 'experimental';
   };
 
-  // Operational status
-  status: {
-    isAvailable: boolean;        // Currently available
-    requiresLoading: boolean;    // Local model requiring load
-    loadingSupported: boolean;   // Can be loaded on demand
-
-    // Health monitoring
-    lastHealthCheck?: number;    // Last API health check
-    healthStatus: 'healthy' | 'degraded' | 'down' | 'unknown';
-    responseTimeMs?: number;     // Average response time
-    errorRate?: number;          // Error rate percentage
-  };
-
-  // Feature flags and limits
-  features: {
-    streamingSupported: boolean;
-    summaryGeneration: boolean;
-    titleGeneration: boolean;
-    batchProcessing?: boolean;
-
-    // Rate limits
-    requestsPerMinute?: number;
-    requestsPerDay?: number;
-    tokensPerMinute?: number;
-  };
-
-  // Version and updates
-  modelVersion?: string;         // Model version identifier
-  lastUpdated: number;           // Configuration last updated
-  deprecatedAt?: number;         // Deprecation timestamp
-  removedAt?: number;            // Removal timestamp
-
-  // Version tracking
-  schemaVersion: number;
-}
-```
-
-### 2.5 Operations Collection
-
-**Purpose**: Track async operations like summarization and title generation.
-
-```typescript
-interface OperationDocument {
-  // Identity
-  id: string;                    // Primary key: "op_123"
-  type: 'summarize' | 'generate_title' | 'load_model' | 'migrate_data';
-
-  // Relationships
-  userId: string;                // Operation owner
-  threadId?: string;             // Related thread (if applicable)
-  modelId?: string;              // Related model (if applicable)
-  messageId?: string;            // Related message (if applicable)
-
-  // Operation status
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
-  progress: number;              // Percentage complete (0-100)
-
-  // Execution details
-  startedAt: number;             // Operation start time
-  completedAt?: number;          // Operation completion time
-  timeoutAt: number;             // Operation timeout deadline
-
-  // Operation parameters
-  parameters: {
-    [key: string]: any;          // Operation-specific parameters
-  };
-
-  // Results
-  result?: {
-    data?: any;                  // Operation result data
-    summary?: string;            // For summarization operations
-    title?: string;              // For title generation
-    tokensUsed?: number;         // Tokens consumed
-    modelUsed?: string;          // Model used for operation
-  };
-
-  // Error handling
-  error?: {
-    code: string;
-    message: string;
-    details?: any;
-    retryCount: number;
-    nextRetryAt?: number;
-  };
-
-  // Metadata
-  createdAt: number;
-  updatedAt: number;
-
-  // Version tracking
-  schemaVersion: number;
-}
-```
-
-### 2.6 System Collection
-
-**Purpose**: Application metadata, configuration, and operational data.
-
-```typescript
-interface SystemDocument {
-  // Document type identifier
-  type: 'version' | 'config' | 'stats' | 'health';
-
-  // Version information
-  version?: {
-    application: string;         // Application version
-    schema: number;              // Current schema version
-    buildTime: number;           // Build timestamp
-    gitCommit: string;           // Git commit hash
-    environment: 'development' | 'staging' | 'production';
-  };
-
-  // Global configuration
-  config?: {
-    features: {
-      userRegistration: boolean;
-      modelLoading: boolean;
-      streaming: boolean;
-      summarization: boolean;
-    };
-
-    limits: {
-      maxThreadsPerUser: number;
-      maxMessagesPerThread: number;
-      maxTokensPerMessage: number;
-      maxConcurrentConnections: number;
-      rateLimit: {
-        requestsPerMinute: number;
-        requestsPerHour: number;
-      };
-    };
-
-    defaults: {
-      temperature: number;
-      model: string;
-      systemPrompt: string;
-    };
-  };
-
-  // Application statistics
-  stats?: {
-    totalUsers: number;
-    totalThreads: number;
-    totalMessages: number;
-    totalTokensProcessed: number;
-
-    dailyStats: {
-      date: string;              // YYYY-MM-DD format
-      newUsers: number;
-      newThreads: number;
-      messagesGenerated: number;
-      tokensProcessed: number;
-      apiCalls: number;
-    }[];
-
-    modelUsage: {
-      [modelId: string]: {
-        totalCalls: number;
-        totalTokens: number;
-        avgResponseTime: number;
-        errorRate: number;
-      };
-    };
-  };
-
-  // Health monitoring
-  health?: {
-    lastUpdateAt: number;
-    services: {
-      database: {
-        status: 'healthy' | 'degraded' | 'down';
-        latency: number;
-        connectionCount: number;
-        lastError?: string;
-      };
-
-      ollama: {
-        status: 'ready' | 'loading' | 'error' | 'unavailable';
-        loadedModels: string[];
-        memoryUsage: number;
-        lastError?: string;
-      };
-
-      externalApis: {
-        [provider: string]: {
-          status: 'reachable' | 'unreachable';
-          latency: number;
-          lastCheck: number;
-          errorCount: number;
-        };
-      };
-    };
-  };
-
   // Timestamps
-  createdAt: number;
-  updatedAt: number;
-
-  // Version tracking
-  schemaVersion: number;
+  createAt: number;              // Creation timestamp (epoch)
+  updateAt: number;              // Last update timestamp (epoch)
 }
 ```
+
 
 ---
 
@@ -494,9 +215,6 @@ Users (1) ────────── (N) Threads
    │                     │
    │                     │
    └─ (1) ────────── (N) Messages
-   │                     │
-   │                     │
-   └─ (1) ────────── (N) Operations
 
 Models_Config (1) ── (N) Messages (via modelId)
 Threads (1) ─────── (N) Messages (via threadId)
@@ -505,14 +223,11 @@ Threads (1) ─────── (N) Messages (via threadId)
 ### 3.2 Referential Integrity Rules
 
 #### User Deletion
-- **CASCADE**: Delete all user's threads, messages, and operations
-- **PRESERVE**: Maintain anonymized statistics in system collection
+- **CASCADE**: Delete all user's threads and messages
 - **ENCRYPT**: Overwrite API keys with random data before deletion
 
 #### Thread Deletion
 - **CASCADE**: Delete all messages within the thread
-- **UPDATE**: Remove thread references from operations
-- **MAINTAIN**: Keep operation records for audit purposes
 
 #### Model Configuration Changes
 - **SOFT DELETE**: Mark as deprecated rather than hard delete
@@ -540,32 +255,22 @@ Threads (1) ─────── (N) Messages (via threadId)
   "rules": {
     // User lookup by username (unique constraint)
     "users": {
-      ".indexOn": ["username", "status", "lastLoginAt"]
+      ".indexOn": ["username", "lastLoginAt"]
     },
 
     // Thread queries by user with pagination
     "threads": {
-      ".indexOn": ["userId", "updatedAt", "createdAt", "settings.isArchived"]
+      ".indexOn": ["userId", "updateAt", "createAt"]
     },
 
     // Message queries by thread and model
     "messages": {
-      ".indexOn": ["threadId", "modelId", "createdAt", "status", "userId"]
+      ".indexOn": ["threadId", "modelId", "createAt", "status", "userId"]
     },
 
     // Model config queries
     "models_config": {
-      ".indexOn": ["provider", "status.isAvailable", "ui.displayOrder"]
-    },
-
-    // Operations tracking
-    "operations": {
-      ".indexOn": ["userId", "status", "type", "createdAt"]
-    },
-
-    // System data queries
-    "system": {
-      ".indexOn": ["type", "updatedAt"]
+      ".indexOn": ["provider", "ui.displayOrder"]
     }
   }
 }
@@ -581,7 +286,7 @@ Threads (1) ─────── (N) Messages (via threadId)
 database.ref('threads')
   .orderByChild('userId')
   .equalTo(userId)
-  .orderByChild('updatedAt')
+  .orderByChild('updateAt')
   .limitToLast(20)
 ```
 
@@ -593,7 +298,7 @@ database.ref('messages')
   .equalTo(threadId)
   .orderByChild('modelId')
   .equalTo(modelId)
-  .orderByChild('createdAt')
+  .orderByChild('createAt')
   .limitToLast(50)
 ```
 
@@ -615,7 +320,6 @@ database.ref(`messages/${messageId}/tokens`)
 The database initialization script sets up the basic structure and seed data for a new LLM Chat application instance. This is a one-time setup process that:
 
 - Creates the required collections/nodes
-- Sets up initial system configuration
 - Populates the models catalog
 - Creates necessary indexes
 - Sets up security rules
@@ -629,54 +333,11 @@ The database initialization script sets up the basic structure and seed data for
 4. Set up security rules
 
 #### Step 2: Collection Initialization
-- Initialize empty collections: `users`, `threads`, `messages`, `operations`
-- Create system configuration documents
+- Initialize empty collections: `users`, `threads`, `messages`
 - Populate models_config with supported models
 
-#### Step 3: System Configuration
-```javascript
-// System version document
-{
-  type: 'version',
-  version: {
-    application: '1.0.0',
-    schema: 1,
-    buildTime: Date.now(),
-    gitCommit: process.env.GIT_COMMIT,
-    environment: process.env.NODE_ENV
-  },
-  schemaVersion: 1
-}
-
-// System configuration document
-{
-  type: 'config',
-  config: {
-    features: {
-      userRegistration: true,
-      modelLoading: true,
-      streaming: true,
-      summarization: true
-    },
-    limits: {
-      maxThreadsPerUser: 100,
-      maxMessagesPerThread: 1000,
-      maxTokensPerMessage: 100000,
-      maxConcurrentConnections: 50,
-      rateLimit: {
-        requestsPerMinute: 60,
-        requestsPerHour: 1000
-      }
-    },
-    defaults: {
-      temperature: 0.7,
-      model: 'claude-sonnet-3.5',
-      systemPrompt: 'You are a helpful AI assistant.'
-    }
-  },
-  schemaVersion: 1
-}
-```
+#### Step 3: Model Configuration
+Initial model configurations are populated directly into the `models_config` collection during initialization.
 
 ### 5.3 Security Rules Setup
 
@@ -705,16 +366,6 @@ The database initialization script sets up the basic structure and seed data for
       }
     },
     "models_config": {
-      ".read": "auth != null",
-      ".write": false  // Read-only for users
-    },
-    "operations": {
-      "$operationId": {
-        ".read": "data.child('userId').val() === auth.uid",
-        ".write": "data.child('userId').val() === auth.uid"
-      }
-    },
-    "system": {
       ".read": "auth != null",
       ".write": false  // Read-only for users
     }
@@ -764,21 +415,6 @@ Each model follows the `ModelConfigDocument` interface with specific configurati
   provider: 'anthropic',
   apiKeyType: 'claude',
   requiresApiKey: true,
-  capabilities: {
-    text: true,
-    reasoning: true,
-    coding: true,
-    analysis: true,
-    vision: false,
-    function_calling: true
-  },
-  specs: {
-    contextLength: 200000,
-    maxOutputTokens: 8192,
-    inputTokenCost: 0.015,
-    outputTokenCost: 0.075,
-    currency: 'USD'
-  },
   ui: {
     temperatureType: 'range',
     temperatureOptions: {
@@ -791,21 +427,8 @@ Each model follows the `ModelConfigDocument` interface with specific configurati
     color: '#FF6B35',
     category: 'cloud'
   },
-  status: {
-    isAvailable: true,
-    requiresLoading: false,
-    loadingSupported: false,
-    healthStatus: 'unknown'
-  },
-  features: {
-    streamingSupported: true,
-    summaryGeneration: true,
-    titleGeneration: true,
-    requestsPerMinute: 60,
-    requestsPerDay: 1000,
-    tokensPerMinute: 40000
-  },
-  schemaVersion: 1
+  createAt: 1640995200000,      // Example timestamp
+  updateAt: 1640995200000       // Example timestamp
 }
 ```
 
@@ -817,23 +440,6 @@ Each model follows the `ModelConfigDocument` interface with specific configurati
   provider: 'ollama',
   apiKeyType: null,
   requiresApiKey: false,
-  capabilities: {
-    text: true,
-    reasoning: true,
-    coding: true,
-    analysis: false,
-    vision: false,
-    function_calling: false
-  },
-  specs: {
-    contextLength: 8192,
-    maxOutputTokens: 2048,
-    modelSize: '2B',
-    quantization: 'Q4_0',
-    memoryRequirement: 3,
-    diskSpace: 1.6,
-    loadTimeEstimate: 10
-  },
   ui: {
     temperatureType: 'range',
     temperatureOptions: {
@@ -846,18 +452,8 @@ Each model follows the `ModelConfigDocument` interface with specific configurati
     color: '#4285F4',
     category: 'local'
   },
-  status: {
-    isAvailable: false,
-    requiresLoading: true,
-    loadingSupported: true,
-    healthStatus: 'unknown'
-  },
-  features: {
-    streamingSupported: true,
-    summaryGeneration: false,
-    titleGeneration: false
-  },
-  schemaVersion: 1
+  createAt: 1640995200000,      // Example timestamp
+  updateAt: 1640995200000       // Example timestamp
 }
 ```
 
@@ -894,35 +490,6 @@ Each model follows the `ModelConfigDocument` interface with specific configurati
 - Secure key storage with hash verification
 - No plaintext sensitive data in database
 
-### 7.3 Performance Optimization
-
-**Optimization Strategies:**
-- Cursor-based pagination for all list operations
-- Multi-layer caching (memory + persistent)
-- Denormalized data for frequently accessed information
-- Optimized Firebase queries with proper indexing
-- Batch operations for bulk data processing
-
-**Caching Strategy:**
-- User profiles cached for 5 minutes
-- Model configurations cached for 30 minutes
-- Thread lists cached with invalidation on updates
-- Message tokens cached during streaming
-
-### 7.4 Backup & Recovery
-
-**Backup Strategy:**
-- Daily automated backups to cloud storage
-- Incremental backups for large datasets
-- Encrypted backup files with compression
-- Multiple backup destinations for redundancy
-- Point-in-time recovery using transaction logs
-
-**Recovery Procedures:**
-- Automated backup verification
-- Staged recovery testing
-- Rollback procedures for failed updates
-- Data consistency checks post-recovery
 
 ---
 
