@@ -231,49 +231,7 @@ sequenceDiagram
     end
 ```
 
-## 7. Data Model for Async Messaging
-
-### Message Document Structure
-
-```typescript
-interface MessageDocument {
-  id: string;
-  threadId: string;
-  modelId: string;
-  role: 'user' | 'assistant' | 'system';
-  content: string; // For user messages, full content
-  tokens?: string[]; // For assistant messages, array of tokens
-  isComplete: boolean; // End-of-message marker
-  status: 'pending' | 'generating' | 'complete' | 'failed';
-  temperature?: number;
-  totalTokens?: number;
-  createdAt: number; // epoch timestamp
-  updatedAt: number; // epoch timestamp
-  error?: {
-    code: string;
-    message: string;
-    timestamp: number;
-  };
-}
-```
-
-### DB Watcher Implementation
-
-```typescript
-interface DBWatcher {
-  messageId: string;
-  timeout: number; // 30 seconds default
-  onTokenUpdate: (token: string, index: number) => void;
-  onComplete: (totalTokens: number) => void;
-  onError: (error: Error) => void;
-  onTimeout: () => void;
-  onDisconnect: () => void;
-  deregister: () => void; // Explicit cleanup method
-  isActive: boolean; // Track watcher state
-}
-```
-
-## 8. Frontend State Management Integration
+## 7. Frontend State Management Integration
 
 ### Zustand Store Updates
 
@@ -339,7 +297,7 @@ class MessageStreamClient {
 }
 ```
 
-## 9. Performance Considerations
+## 8. Performance Considerations
 
 ### Connection Management
 - Limit concurrent SSE connections per user (max 3)
@@ -353,12 +311,6 @@ class MessageStreamClient {
 - Use cursor-based pagination for message history
 - Deregister DB watchers on completion, disconnect, or timeout
 - Track active watchers to prevent resource exhaustion
-
-### Error Recovery
-- Automatic retry with exponential backoff
-- Graceful degradation when streaming fails
-- Offline support with local message queuing
-- Proper cleanup of DB watchers on all failure scenarios
 
 ## 10. Testing Strategy
 
