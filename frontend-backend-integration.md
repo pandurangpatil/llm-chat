@@ -182,10 +182,10 @@ sequenceDiagram
         Watcher-->>API: End marker detected
         API-->>UI: SSE: message_complete
         API-->>-UI: Close connection
-        Watcher->>-Watcher: Stop watching
+        Watcher->>Watcher: Stop watching
 
     else Timeout scenario
-        Watcher->>-Watcher: 30 second timeout
+        Watcher->>Watcher: 30 second timeout
         API-->>UI: SSE: error event
         Note over UI,API: {"error": "Generation timeout", "code": "TIMEOUT"}
         API-->>-UI: Close connection with error
