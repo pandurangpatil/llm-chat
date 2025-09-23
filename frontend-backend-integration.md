@@ -2,7 +2,7 @@
 
 This document outlines the integration patterns between the frontend and backend systems, including sequence diagrams for key user flows and technical implementation details.
 
-## Core Integration Patterns
+## 1. Core Integration Patterns
 
 The system uses an **async streaming architecture** where:
 - API calls return immediately with tracking IDs (except title generation blocks briefly)
@@ -10,7 +10,7 @@ The system uses an **async streaming architecture** where:
 - Real-time updates are delivered via Server-Sent Events (SSE)
 - DB watchers handle token streaming with explicit deregistration on completion or disconnect
 
-## Authentication Flow
+## 2. Authentication Flow
 
 ```mermaid
 sequenceDiagram
@@ -30,7 +30,7 @@ sequenceDiagram
     UI->>UI: Redirect to dashboard
 ```
 
-## New Thread Creation with First Message
+## 3. New Thread Creation with First Message
 
 ```mermaid
 sequenceDiagram
@@ -88,7 +88,7 @@ sequenceDiagram
     UI->>UI: Update thread in sidebar
 ```
 
-## Continuing Conversation
+## 4. Continuing Conversation
 
 ```mermaid
 sequenceDiagram
@@ -145,7 +145,7 @@ sequenceDiagram
     API-->>-UI: Close SSE connection
 ```
 
-## Model Loading Flow
+## 5. Model Loading Flow
 
 ```mermaid
 sequenceDiagram
@@ -182,7 +182,7 @@ sequenceDiagram
     UI->>UI: Enable model for selection
 ```
 
-## Error Handling and Timeouts
+## 6. Error Handling and Timeouts
 
 ```mermaid
 sequenceDiagram
@@ -231,7 +231,7 @@ sequenceDiagram
     end
 ```
 
-## Data Model for Async Messaging
+## 7. Data Model for Async Messaging
 
 ### Message Document Structure
 
@@ -273,7 +273,7 @@ interface DBWatcher {
 }
 ```
 
-## Frontend State Management Integration
+## 8. Frontend State Management Integration
 
 ### Zustand Store Updates
 
@@ -339,7 +339,7 @@ class MessageStreamClient {
 }
 ```
 
-## Performance Considerations
+## 9. Performance Considerations
 
 ### Connection Management
 - Limit concurrent SSE connections per user (max 3)
@@ -360,7 +360,7 @@ class MessageStreamClient {
 - Offline support with local message queuing
 - Proper cleanup of DB watchers on all failure scenarios
 
-## Testing Strategy
+## 10. Testing Strategy
 
 ### Integration Tests
 - Mock LLM providers for deterministic responses
@@ -374,7 +374,7 @@ class MessageStreamClient {
 - Network failure recovery
 - Performance under load
 
-## Security Considerations
+## 11. Security Considerations
 
 ### SSE Security
 - JWT validation on SSE connections

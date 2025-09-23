@@ -2,7 +2,7 @@
 
 The backend follows a **layered service architecture** built on Node.js with Express, designed for scalability, maintainability, and integration with multiple LLM providers. The architecture emphasizes clean separation of concerns, robust error handling, and real-time communication capabilities.
 
-## Core Architecture Principles
+## 1. Core Architecture Principles
 
 - **Service-oriented design**: Each major feature area is encapsulated in dedicated service classes
 - **Provider abstraction**: Unified interface for different LLM providers (Claude, OpenAI, Google AI, Ollama)
@@ -10,7 +10,7 @@ The backend follows a **layered service architecture** built on Node.js with Exp
 - **Security by design**: End-to-end encryption for API keys, JWT-based authentication, comprehensive input validation
 - **Observability**: Structured logging, health checks, and metrics collection at every layer
 
-## Request Processing Pipeline
+## 2. Request Processing Pipeline
 
 ```
 Client Request → Auth Middleware → Validation → Service Layer → Provider Layer → Database Layer
@@ -20,7 +20,7 @@ Client Request → Auth Middleware → Validation → Service Layer → Provider
                Rate Limiting → Error Handling → Response Format → Streaming → Audit Log
 ```
 
-## Core Services & Components
+## 3. Core Services & Components
 
 ### Authentication Service (`AuthService`)
 
@@ -64,7 +64,7 @@ Client Request → Auth Middleware → Validation → Service Layer → Provider
 - **Model Availability**: Tracks loading status of local and remote models
 - **Performance Metrics**: Response times, error rates, and resource utilization
 
-## Authentication & Authorization
+## 4. Authentication & Authorization
 
 ### JWT Implementation
 
@@ -92,7 +92,7 @@ Client Request → Auth Middleware → Validation → Service Layer → Provider
 - **API Key Validation**: Verifies user has required API keys for model access
 - **Rate Limiting**: Per-user request throttling to prevent abuse
 
-## Model Integration Layer
+## 5. Model Integration Layer
 
 ### Unified Model Interface
 
@@ -121,7 +121,7 @@ interface ModelProvider {
 - **Resource Management**: Memory and CPU optimization for model operations
 - **Failure Recovery**: Automatic retry logic with exponential backoff
 
-## Real-time Communication
+## 6. Real-time Communication
 
 ### Server-Sent Events (SSE) Implementation
 
@@ -169,7 +169,7 @@ interface StreamingResponse {
 }
 ```
 
-## Performance Optimization
+## 7. Performance Optimization
 
 ### Caching Strategy (Redis-free Initial Implementation)
 
@@ -184,7 +184,7 @@ interface StreamingResponse {
 - **Connection Pooling**: Efficient database connection management
 - **Request Batching**: Batch non-critical operations where possible
 
-## Security Implementation
+## 8. Security Implementation
 
 ### API Key Management
 
@@ -200,7 +200,7 @@ interface StreamingResponse {
 - **File Upload Security**: Validate file types and scan for malicious content
 - **Rate Limiting**: Configurable limits per user and endpoint
 
-## Error Handling & Logging
+## 9. Error Handling & Logging
 
 ### Structured Error Response Format
 
@@ -226,11 +226,11 @@ interface StreamingResponse {
 - **Sensitive Data Redaction**: Automatic redaction of API keys and personal data
 - **Request Tracing**: Full request lifecycle tracking for debugging
 
-# API Endpoints (Comprehensive Specification)
+# 10. API Endpoints (Comprehensive Specification)
 
 All API endpoints use RESTful conventions with JSON request/response bodies. Authentication is handled via JWT tokens in httpOnly cookies. Rate limiting is applied per user and endpoint.
 
-## Standard Response Format
+## 10.1. Standard Response Format
 
 ### Success Response
 ```json
@@ -269,7 +269,7 @@ All API endpoints use RESTful conventions with JSON request/response bodies. Aut
 }
 ```
 
-## Authentication Endpoints
+## 10.2. Authentication Endpoints
 
 ### POST /api/login
 
@@ -380,7 +380,7 @@ All API endpoints use RESTful conventions with JSON request/response bodies. Aut
 }
 ```
 
-## Profile Management Endpoints
+## 10.3. Profile Management Endpoints
 
 ### GET /api/profile
 
@@ -488,7 +488,7 @@ All API endpoints use RESTful conventions with JSON request/response bodies. Aut
 }
 ```
 
-## Model Management Endpoints
+## 10.4. Model Management Endpoints
 
 ### GET /api/models
 
@@ -588,7 +588,7 @@ All API endpoints use RESTful conventions with JSON request/response bodies. Aut
 }
 ```
 
-## Thread Management Endpoints
+## 10.5. Thread Management Endpoints
 
 ### GET /api/threads
 
@@ -776,7 +776,7 @@ GET /api/threads?limit=20&q=architecture&orderBy=updated_at&order=desc
 }
 ```
 
-## Message Management Endpoints
+## 10.6. Message Management Endpoints
 
 ### GET /api/threads/:threadId/models/:modelId/messages
 
@@ -955,7 +955,7 @@ data: {}
 }
 ```
 
-## Error Handling
+## 10.7. Error Handling
 
 All endpoints return appropriate HTTP status codes:
 
@@ -972,7 +972,7 @@ All endpoints return appropriate HTTP status codes:
 - `500 Internal Server Error`: Server error
 - `503 Service Unavailable`: Temporary service unavailability
 
-## Rate Limiting Headers
+## 10.8. Rate Limiting Headers
 
 All responses include rate limiting headers:
 

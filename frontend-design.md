@@ -2,7 +2,7 @@
 
 The frontend follows a **component-driven architecture** using React with TypeScript and Material-UI, organized in layers.
 
-## Application Structure
+## 1. Application Structure
 
 The frontend uses a structured approach to organization and component hierarchy.
 
@@ -29,7 +29,7 @@ src/
 - **UI State**: Sidebar collapse, modal states, notification toasts
 - **Health Monitoring**: System status, version info, real-time health checks
 
-## Navigation Structure & Routes
+## 2. Navigation Structure & Routes
 
 The application uses **React Router** with protected routes and role-based access:
 
@@ -41,7 +41,7 @@ The application uses **React Router** with protected routes and role-based acces
 /404                       → Not Found Page
 ```
 
-## Detailed Page Specifications
+## 3. Detailed Page Specifications
 
 The frontend consists of 5 main pages, focusing on core functionality with a streamlined interface.
 
@@ -291,7 +291,7 @@ The frontend consists of 5 main pages, focusing on core functionality with a str
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## Component Library Specifications
+## 4. Component Library Specifications
 
 The application uses Material-UI as the foundational component library with custom components built on top.
 
@@ -332,7 +332,7 @@ The application uses Material-UI as the foundational component library with cust
 - `Box` (MUI): Flexible layout container
 - `Stack` (MUI): Vertical/horizontal component stacking
 
-## State Management Approach
+## 5. State Management Approach
 
 The application uses Zustand for state management with a structured store design.
 
@@ -401,7 +401,7 @@ interface AppState {
 }
 ```
 
-## User Interaction Flows
+## 6. User Interaction Flows
 
 Key user journeys and their implementation patterns.
 
@@ -439,7 +439,7 @@ Key user journeys and their implementation patterns.
 7. If valid, key encrypted and stored via `POST /api/profile/api-keys`
 8. Models requiring that provider become available in model selector
 
-## Responsive Design Strategy
+## 7. Responsive Design Strategy
 
 The application adapts across different screen sizes and devices.
 
@@ -473,7 +473,7 @@ The application adapts across different screen sizes and devices.
 - High contrast mode support
 - Reduced motion preferences
 
-## Performance Optimizations
+## 8. Performance Optimizations
 
 Strategies to ensure optimal application performance.
 
