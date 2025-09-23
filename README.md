@@ -11,15 +11,16 @@
 5. [System Operations & Runtime Behavior](#5--system-operations--runtime-behavior)
 6. [Frontend Implementation Specifications](#6--frontend-implementation-specifications)
 7. [Backend Architecture & Implementation](#7--backend-architecture--implementation)
-8. [Data Model & Persistence](#8--data-model--persistence)
-9. [Testing Strategy (TDD + Integration)](#9--testing-strategy-tdd--integration)
-10. [CI/CD (GitHub Actions) — Finalized Flow](#10--cicd-github-actions--finalized-flow)
-11. [Migration Scripts & DB Priming](#11--migration-scripts--db-priming)
-12. [Security & Hardening Checklist](#12--security--hardening-checklist)
-13. [Observability & Metrics](#13--observability--metrics)
-14. [Implementation Approach & Incremental Milestones](#14--implementation-approach--incremental-milestones)
-15. [Prompt Structure Skeleton (For Later Generation)](#15--prompt-structure-skeleton-for-later-generation)
-16. [Next Steps](#16--next-steps)
+8. [Frontend-Backend Integration](#8--frontend-backend-integration)
+9. [Data Model & Persistence](#9--data-model--persistence)
+10. [Testing Strategy (TDD + Integration)](#10--testing-strategy-tdd--integration)
+11. [CI/CD (GitHub Actions) — Finalized Flow](#11--cicd-github-actions--finalized-flow)
+12. [Migration Scripts & DB Priming](#12--migration-scripts--db-priming)
+13. [Security & Hardening Checklist](#13--security--hardening-checklist)
+14. [Observability & Metrics](#14--observability--metrics)
+15. [Implementation Approach & Incremental Milestones](#15--implementation-approach--incremental-milestones)
+16. [Prompt Structure Skeleton (For Later Generation)](#16--prompt-structure-skeleton-for-later-generation)
+17. [Next Steps](#17--next-steps)
 
 ---
 
@@ -348,7 +349,15 @@ This section covers the complete backend architecture including Node.js/Express 
 
 ---
 
-## 8 — Data Model & Persistence
+## 8 — Frontend-Backend Integration
+
+**See:** [frontend-backend-integration.md](./frontend-backend-integration.md)
+
+This section covers the integration patterns between frontend and backend systems, including sequence diagrams for key user flows, technical implementation details, async streaming architecture, authentication flow, thread creation and conversation flows, async summarization, model loading, error handling with DB watcher timeouts, data model updates for async operations, frontend state management integration, performance considerations, testing strategy, and security considerations.
+
+---
+
+## 9 — Data Model & Persistence
 
 **See:** [data-model-persistence.md](./data-model-persistence.md)
 
@@ -357,7 +366,7 @@ This section covers the complete data model architecture including detailed data
 ---
 
 
-## 9 — Testing Strategy (TDD + Integration)
+## 10 — Testing Strategy (TDD + Integration)
 
 ### Unit tests (run in CI):
 - Prompt builder, token estimation, encryption utilities, small service functions
@@ -380,7 +389,7 @@ This section covers the complete data model architecture including detailed data
 
 ---
 
-## 10 — CI/CD (GitHub Actions) — Finalized Flow
+## 11 — CI/CD (GitHub Actions) — Finalized Flow
 
 ### Common points
 
@@ -420,7 +429,7 @@ This section covers the complete data model architecture including detailed data
 
 ---
 
-## 11 — Migration Scripts & DB Priming
+## 12 — Migration Scripts & DB Priming
 
 - Provide a `migrations/` folder with numbered migration files (JS) that run in sequence
 - Migration runner executes at build or on startup (controlled via env var `RUN_MIGRATIONS=true`) and can:
@@ -434,7 +443,7 @@ This section covers the complete data model architecture including detailed data
 
 ---
 
-## 12 — Security & Hardening Checklist
+## 13 — Security & Hardening Checklist
 
 ### Authentication:
 - JWT tokens with strong signing key stored in Secret Manager (rotate periodically)
@@ -474,7 +483,7 @@ This section covers the complete data model architecture including detailed data
 
 ---
 
-## 13 — Observability & Metrics
+## 14 — Observability & Metrics
 
 - Expose metrics endpoint (Prometheus style or JSON) for:
   - Requests per endpoint, model calls, tokens consumed, worker queue depth
@@ -484,7 +493,7 @@ This section covers the complete data model architecture including detailed data
 ---
 
 
-## 14 — Implementation Approach & Incremental Milestones
+## 15 — Implementation Approach & Incremental Milestones
 
 This section describes milestone-by-milestone plans for the backend and frontend repos. Each milestone is TDD-first: write failing tests (unit / integration), implement code until tests pass, expand Postman/Newman integration tests, and ensure CI runs green.
 
@@ -759,7 +768,7 @@ How automated agent / CI should start backend for frontend tests:
 
 ---
 
-## 15 — Prompt Structure Skeleton (For Later Generation)
+## 16 — Prompt Structure Skeleton (For Later Generation)
 
 This is the template we will use later to generate Jules/engineer prompts for each repo and per milestone. We are not generating prompt content now — only the structure/sections that each prompt should contain.
 
@@ -789,7 +798,7 @@ We will reuse this structure when you ask us to generate the actual repo-specifi
 
 ---
 
-## 16 — Next Steps
+## 17 — Next Steps
 
 This design is finalized and ready. When you confirm, I will:
 
