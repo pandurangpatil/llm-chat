@@ -15,12 +15,10 @@
 9. [Data Model & Persistence](#9--data-model--persistence)
 10. [Testing Strategy (TDD + Integration)](#10--testing-strategy-tdd--integration)
 11. [CI/CD (GitHub Actions) — Finalized Flow](#11--cicd-github-actions--finalized-flow)
-12. [Migration Scripts & DB Priming](#12--migration-scripts--db-priming)
-13. [Security & Hardening Checklist](#13--security--hardening-checklist)
-14. [Observability & Metrics](#14--observability--metrics)
-15. [Implementation Approach & Incremental Milestones](#15--implementation-approach--incremental-milestones)
-16. [Prompt Structure Skeleton (For Later Generation)](#16--prompt-structure-skeleton-for-later-generation)
-17. [Next Steps](#17--next-steps)
+12. [Security & Hardening Checklist](#12--security--hardening-checklist)
+13. [Implementation Approach & Incremental Milestones](#13--implementation-approach--incremental-milestones)
+14. [Prompt Structure Skeleton (For Later Generation)](#14--prompt-structure-skeleton-for-later-generation)
+15. [Next Steps](#15--next-steps)
 
 ---
 
@@ -429,21 +427,8 @@ This section covers the complete data model architecture including detailed data
 
 ---
 
-## 12 — Migration Scripts & DB Priming
 
-- Provide a `migrations/` folder with numbered migration files (JS) that run in sequence
-- Migration runner executes at build or on startup (controlled via env var `RUN_MIGRATIONS=true`) and can:
-  - Create initial `models_config` entries
-  - Create default system nodes
-  - Create seed data for local dev
-- Support commands:
-  - `migrate:up`, `migrate:down`, `migrate:status`
-- For Firebase, use an adapter that applies changes safely (idempotent operations), and for Mongo use migration tool (e.g., migrate-mongo or standalone runner)
-- On system start with `RUN_MIGRATIONS=true`, the backend runs pending migrations before listening to requests
-
----
-
-## 13 — Security & Hardening Checklist
+## 12 — Security & Hardening Checklist
 
 ### Authentication:
 - JWT tokens with strong signing key stored in Secret Manager (rotate periodically)
@@ -483,17 +468,9 @@ This section covers the complete data model architecture including detailed data
 
 ---
 
-## 14 — Observability & Metrics
-
-- Expose metrics endpoint (Prometheus style or JSON) for:
-  - Requests per endpoint, model calls, tokens consumed, worker queue depth
-- Logs to Cloud Logging with structured fields
-- Health endpoint used by Uptime checks and displayed in UI
-
----
 
 
-## 15 — Implementation Approach & Incremental Milestones
+## 13 — Implementation Approach & Incremental Milestones
 
 This section describes milestone-by-milestone plans for the backend and frontend repos. Each milestone is TDD-first: write failing tests (unit / integration), implement code until tests pass, expand Postman/Newman integration tests, and ensure CI runs green.
 
@@ -768,7 +745,7 @@ How automated agent / CI should start backend for frontend tests:
 
 ---
 
-## 16 — Prompt Structure Skeleton (For Later Generation)
+## 14 — Prompt Structure Skeleton (For Later Generation)
 
 This is the template we will use later to generate Jules/engineer prompts for each repo and per milestone. We are not generating prompt content now — only the structure/sections that each prompt should contain.
 
@@ -798,7 +775,7 @@ We will reuse this structure when you ask us to generate the actual repo-specifi
 
 ---
 
-## 17 — Next Steps
+## 15 — Next Steps
 
 This design is finalized and ready. When you confirm, I will:
 
