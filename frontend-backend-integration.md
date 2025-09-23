@@ -181,14 +181,14 @@ sequenceDiagram
         API-->>UI: SSE: token event
         Watcher-->>API: End marker detected
         API-->>UI: SSE: message_complete
-        API-->>-UI: Close connection
+        API-->>UI: Close connection
         Watcher->>Watcher: Stop watching
 
     else Timeout scenario
         Watcher->>Watcher: 30 second timeout
         API-->>UI: SSE: error event
         Note over UI,API: {"error": "Generation timeout", "code": "TIMEOUT"}
-        API-->>-UI: Close connection with error
+        API-->>UI: Close connection with error
         UI->>UI: Show retry option
 
     else LLM API failure
