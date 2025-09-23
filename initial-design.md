@@ -331,26 +331,9 @@ This section covers the complete backend architecture including Node.js/Express 
 
 ## 8 — Data Model & Persistence
 
-### Top-level DB layout (Firebase JSON / Mongo collections)
+**See:** [data-model-persistence.md](./data-model-persistence.md)
 
-- **`users` collection** (or node): user profile, pwd hash, display data, encrypted API keys, default model settings
-- **`threads` collection**:
-  - `id`, `user_id`, `title`, `created_at`, `updated_at`, `meta…`
-  - `models` (dictionary or separate collection reference): for each supported model id, there is model-specific metadata (e.g., `modelId`, `loaded_status`, `summary`, `summary_updated_at`, `last_message_at`, `message_count`)
-- **`messages` collection** (separate collection):
-  - Each message: `id`, `thread_id`, `model_id`, `role` (user|assistant|system), `content`, `tokens`, `status` (partial|complete|failed), `created_at`, `updated_at`
-  - Pagination-friendly (indexed by `thread_id` + `created_at`)
-- **`models_config` collection** (persisted model catalog):
-  - Each model: `modelId`, `provider` (ollama|claude|google|openai), `displayName`, `apiKeyType` (which user API key to use), `temperatureOptions` (allowed values or min/max/step or enumerated options), `maxContextTokens`, `notes`
-- **`operations` collection** (async operation tracking):
-  - Track async operations: `operationId`, `type` (summarize), `thread_id`, `model_id`, `status`, `result`, `created_at`, `updated_at`
-- **`system` node**:
-  - version metadata baked into the container; `app_start_time` etc. (but versions are packaged into the build — not written to DB by CI)
-
-### DB provider abstraction
-
-- Backend must implement a data-layer abstraction to switch between Firebase Realtime DB (production) and Firebase Emulator (local) based on `DB_PROVIDER` env var
-- Migration scripts must support both backends (provide a unified migration API that runs JS migration files and can operate on either provider)
+This section covers the complete data model architecture including detailed database schema definitions, relationships, indexing strategies, migration system design with versioning support, data validation and constraints, performance optimizations, security and encryption implementation, backup and recovery procedures, and database provider abstraction layer.
 
 ---
 
