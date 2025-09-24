@@ -366,24 +366,9 @@ This section covers the complete data model architecture including detailed data
 
 ## 10 — Testing Strategy (TDD + Integration)
 
-### Unit tests (run in CI):
-- Prompt builder, token estimation, encryption utilities, small service functions
-- Use Jest (Node) and run in CI
+**See:** [testing-strategy-tdd.md](./testing-strategy-tdd.md)
 
-### Integration tests:
-- Postman collection (or Newman) that exercises auth, thread creation, message flow, summarization trigger, and health endpoints
-- These integration tests are executed during CI build stage:
-  - Start backend in test mode inside the job (use `npm start:test`), connecting to an in-memory DB:
-    - Use Firebase Emulator Suite for local testing
-    - For Firebase: use Firebase Emulator Suite or mock DB adapter (in-memory implementation) to avoid external dependency
-  - Run Newman (postman) collection against the started server
-
-### E2E (separate pipeline):
-- Playwright/Cypress to run a small happy-path with mocked or test backend
-
-### TDD workflow:
-- Developers write failing tests (unit or integration) then implement code to make tests pass
-- CI ensures no regression by running unit + integration tests before build/publish
+This section provides comprehensive coverage of Test-Driven Development (TDD) methodology and API contract testing strategy. It ensures smooth frontend-backend integration through contract-first development, comprehensive test coverage across all layers, and robust CI/CD integration. The strategy emphasizes writing tests before implementation, using API contracts as the source of truth, and maintaining high quality standards through automated testing at every stage of development.
 
 ---
 
