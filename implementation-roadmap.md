@@ -2,21 +2,127 @@
 
 A comprehensive task breakdown designed for autonomous coding agents with CI/CD-first approach, enabling incremental deployment and verification throughout development.
 
+## Technical Requirements
+
+### Backend Stack
+- **Node.js**: 22.x LTS (latest stable)
+- **Express**: 4.19.x
+- **TypeScript**: 5.x
+- **Firebase Admin SDK**: 12.x
+- **Testing**: Jest 29.x
+- **Container**: Docker with node:22-alpine base image
+- **Package Manager**: npm (comes with Node.js 22)
+
+### Frontend Stack
+- **React**: 19.x (latest with concurrent features)
+- **Build Tool**: Vite 5.x (React 19 compatible)
+- **UI Library**: Material-UI 6.x (@mui/material v6)
+- **TypeScript**: 5.x
+- **Routing**: React Router 6.x
+- **State Management**: Zustand 4.x
+- **Testing**: Vitest (React 19 compatible)
+- **Node.js**: 22.x LTS (for build tools)
+
+### Database & Infrastructure
+- **Database**: Firebase Realtime Database
+- **Development**: Firebase Emulator Suite (DB: port 9000, Auth: port 9099)
+- **Container Platform**: Google Cloud Run
+- **Resources**: 4Gi memory, 2 CPU (identical for staging and production)
+- **Local AI**: Ollama with Gemma 2B model (2GB RAM requirement)
+- **Container Registry**: GitHub Container Registry (GHCR)
+- **Instance Scaling**: 0-4 instances (both environments)
+
+### Environment Configuration
+
+#### Staging Environment
+- **Cloud Run Service**: `llm-chat-backend-staging`
+- **Resources**: 4Gi memory, 2 CPU (identical to production)
+- **Firebase Project**: `llm-chat-staging`
+- **Frontend Hosting**: Firebase Hosting staging
+- **Backend Domain**: `staging.api.chat.pandurangpatil.com`
+- **Frontend Domain**: `staging.chat.pandurangpatil.com`
+
+#### Production Environment
+- **Cloud Run Service**: `llm-chat-backend`
+- **Resources**: 4Gi memory, 2 CPU
+- **Firebase Project**: `llm-chat-prod`
+- **Frontend Hosting**: Firebase Hosting production
+- **Backend Domain**: `api.chat.pandurangpatil.com`
+- **Frontend Domain**: `chat.pandurangpatil.com`
+
+**Environment Parity Principle**: Staging MUST have identical configuration to production to ensure accurate performance testing and validation.
+
+### System Limits & Timeouts
+- **JWT Token Expiry**: 15 minutes with refresh token
+- **Rate Limiting**: 100 requests/minute per user (default, configurable)
+- **Database Watchers**: 50 concurrent per backend instance maximum
+- **SSE Message Timeout**: 30 seconds for message generation
+- **Model Loading Timeout**: 300 seconds (5 minutes) for local models
+- **Summarization Interval**: Every 10 messages (user configurable)
+- **API Response Target**: <200ms at 95th percentile
+- **Bundle Size Target**: <500KB initial load
+
+### Quality Gates
+- **Test Coverage**: 80% minimum for critical paths
+- **Security**: No high or critical vulnerabilities
+- **Availability**: 99.9% uptime target
+- **Environment Parity**: Staging must match production configuration
+
+## Task Dependencies Overview
+
+### Overall Project Flow
+```
+Phase 0 (CI/CD Foundation)
+    ↓
+Phase 1 (Infrastructure Foundation)
+    ↓
+Phase 2 (Backend Core) + Phase 3 (Frontend Core) [Parallel]
+    ↓
+Phase 4 (Integration & Production)
+```
+
+### Backend Task Dependencies
+```
+CI-1,CI-2,CI-3 (CI/CD Setup)
+    ↓
+INFRA-B1,B2,B3,B4 (Infrastructure) [Parallel]
+    ↓
+BACK-1 (User Management)
+    ↓
+BACK-2 (Thread CRUD) → BACK-3 (Message System)
+    ↓
+BACK-4 (Model Catalog) + BACK-5 (AI Integration)
+    ↓
+BACK-6 (Ollama Setup) + BACK-7 (Summarization)
+```
+
+### Frontend Task Dependencies
+```
+CI-1,CI-2,CI-3 (CI/CD Setup)
+    ↓
+INFRA-F1,F2,F3,F4 (Infrastructure) [Parallel]
+    ↓
+FRONT-1 (Auth UI)
+    ↓
+FRONT-2 (Layout) → FRONT-3 (Thread UI)
+    ↓
+FRONT-4 (Model Selection) + FRONT-5 (Chat Interface)
+    ↓
+FRONT-6 (Profile) + FRONT-7 (Health Monitoring)
+```
+
 ## Table of Contents
 
 1. [Overview & Execution Strategy](#1-overview--execution-strategy)
-2. [Task Architecture & Dependencies](#2-task-architecture--dependencies)
-3. [Work Phases & Incremental Deployment](#3-work-phases--incremental-deployment)
-4. [Phase 0: CI/CD Foundation & Staging Environment](#4-phase-0-cicd-foundation--staging-environment)
-5. [Phase 1: Infrastructure Foundation Tasks](#5-phase-1-infrastructure-foundation-tasks)
-6. [Phase 2: Backend Core Development Tasks](#6-phase-2-backend-core-development-tasks)
-7. [Phase 3: Frontend Core Development Tasks](#7-phase-3-frontend-core-development-tasks)
-8. [Phase 4: Advanced Features & Production Readiness](#8-phase-4-advanced-features--production-readiness)
-9. [Task Dependencies Matrix](#9-task-dependencies-matrix)
-10. [Critical Path Analysis](#10-critical-path-analysis)
-11. [Resource Requirements](#11-resource-requirements)
-12. [Milestone Gates & Staging Verification](#12-milestone-gates--staging-verification)
-13. [Manual Setup Documentation Requirements](#13-manual-setup-documentation-requirements)
+2. [Work Phases & Incremental Deployment](#2-work-phases--incremental-deployment)
+3. [Phase 0: CI/CD Foundation & Staging Environment](#3-phase-0-cicd-foundation--staging-environment)
+4. [Phase 1: Infrastructure Foundation Tasks](#4-phase-1-infrastructure-foundation-tasks)
+5. [Phase 2: Backend Core Development Tasks](#5-phase-2-backend-core-development-tasks)
+6. [Phase 3: Frontend Core Development Tasks](#6-phase-3-frontend-core-development-tasks)
+7. [Phase 4: Advanced Features & Production Readiness](#7-phase-4-advanced-features--production-readiness)
+8. [Critical Path Analysis](#8-critical-path-analysis)
+9. [Milestone Gates & Staging Verification](#9-milestone-gates--staging-verification)
+10. [Manual Setup Documentation Requirements](#10-manual-setup-documentation-requirements)
 
 ---
 
@@ -103,11 +209,11 @@ Staging Environment:
 
 ---
 
-## 4. Phase 0: CI/CD Foundation & Staging Environment
+## 3. Phase 0: CI/CD Foundation & Staging Environment
 
-### Task X1: Backend Repository with CI/CD Pipeline
+### Task CI-1: Backend Repository with CI/CD Pipeline
 **Dependencies**: None - First task to execute
-**Parallel**: Can run with X2
+**Parallel**: Can run with CI-2
 
 **Objective**: Create backend repository with immediate CI/CD deployment capability
 
@@ -141,9 +247,9 @@ Staging Environment:
 - Manual setup documentation complete with checklists
 - Staging environment accessible and functional
 
-### Task X2: Frontend Repository with CI/CD Pipeline
-**Dependencies**: None - Can run parallel with X1
-**Parallel**: Can run with X1
+### Task CI-2: Frontend Repository with CI/CD Pipeline
+**Dependencies**: None - Can run parallel with CI-1
+**Parallel**: Can run with CI-1
 
 **Objective**: Create frontend repository with immediate Firebase Hosting deployment
 
@@ -174,8 +280,8 @@ Staging Environment:
 - Manual setup documentation complete with checklists
 - Staging environment accessible and responsive
 
-### Task X3: Infrastructure as Code & Environment Configuration
-**Dependencies**: Tasks X1, X2 completed
+### Task CI-3: Infrastructure as Code & Environment Configuration
+**Dependencies**: Tasks CI-1, CI-2 completed
 
 **Objective**: Define all infrastructure and deployment configurations as code
 
@@ -209,13 +315,13 @@ Staging Environment:
 
 ---
 
-## 5. Phase 1: Infrastructure Foundation Tasks
+## 4. Phase 1: Infrastructure Foundation Tasks
 
 ### Backend Foundation (Parallel Execution with Staging Deployment)
 
-#### Task A1: Backend Repository Scaffolding & Development Environment
-**Dependencies**: Task X1 (CI/CD pipeline) completed
-**Parallel**: Can run with A2, A3, A4
+#### Task INFRA-B1: Backend Repository Scaffolding & Development Environment
+**Dependencies**: Task CI-1 (CI/CD pipeline) completed
+**Parallel**: Can run with INFRA-B2, INFRA-B3, INFRA-B4
 **Staging Deployment**: Deploy basic backend with health check after completion
 
 **Objective**: Create complete backend repository structure with development tools and immediate staging deployment
@@ -257,9 +363,9 @@ Staging Environment:
 - All tests pass including staging verification
 - Manual setup documentation complete with checklists
 
-#### Task A2: Database Abstraction Layer & Firebase Integration
-**Dependencies**: Task X1 (CI/CD pipeline) completed
-**Parallel**: Can run with A1, A3, A4
+#### Task INFRA-B2: Database Abstraction Layer & Firebase Integration
+**Dependencies**: Task CI-1 (CI/CD pipeline) completed
+**Parallel**: Can run with INFRA-B1, INFRA-B3, INFRA-B4
 **Staging Deployment**: Deploy database integration to staging after completion
 
 **Objective**: Create database abstraction layer supporting both Firebase Realtime Database and Firebase Emulator with staging verification
@@ -300,9 +406,9 @@ Staging Environment:
 - Health check accurately reports staging database status
 - Manual setup documentation complete with verification steps
 
-#### Task A3: Authentication & Security Infrastructure
-**Dependencies**: Task X1 (CI/CD pipeline) completed
-**Parallel**: Can run with A1, A2, A4
+#### Task INFRA-B3: Authentication & Security Infrastructure
+**Dependencies**: Task CI-1 (CI/CD pipeline) completed
+**Parallel**: Can run with INFRA-B1, INFRA-B2, INFRA-B4
 **Staging Deployment**: Deploy security infrastructure to staging after completion
 
 **Objective**: Implement JWT-based authentication with security middleware and staging verification
@@ -343,9 +449,9 @@ Staging Environment:
 - Security headers and rate limiting active on staging
 - Manual setup documentation complete with security checklists
 
-#### Task A4: Logging, Monitoring & Error Handling Infrastructure
-**Dependencies**: Task X1 (CI/CD pipeline) completed
-**Parallel**: Can run with A1, A2, A3
+#### Task INFRA-B4: Logging, Monitoring & Error Handling Infrastructure
+**Dependencies**: Task CI-1 (CI/CD pipeline) completed
+**Parallel**: Can run with INFRA-B1, INFRA-B2, INFRA-B3
 **Staging Deployment**: Deploy monitoring infrastructure to staging after completion
 
 **Objective**: Implement comprehensive logging, monitoring, and error handling with staging verification
@@ -390,9 +496,9 @@ Staging Environment:
 
 ### Frontend Foundation (Parallel Execution with Staging Deployment)
 
-#### Task B1: Frontend Repository Scaffolding & Build System
-**Dependencies**: Task X2 (Frontend CI/CD pipeline) completed
-**Parallel**: Can run with B2, B3, B4 and all Backend Foundation tasks
+#### Task INFRA-F1: Frontend Repository Scaffolding & Build System
+**Dependencies**: Task CI-2 (Frontend CI/CD pipeline) completed
+**Parallel**: Can run with INFRA-F2, INFRA-F3, INFRA-F4 and all Backend Foundation tasks
 **Staging Deployment**: Deploy basic frontend to Firebase Hosting staging after completion
 
 **Objective**: Create complete frontend repository with modern React development setup and immediate staging deployment
@@ -435,9 +541,9 @@ Staging Environment:
 - Version information displayed correctly on staging
 - Manual setup documentation complete with deployment checklists
 
-#### Task B2: State Management & Data Layer Architecture
-**Dependencies**: Task X2 (Frontend CI/CD pipeline) completed
-**Parallel**: Can run with B1, B3, B4 and all Backend Foundation tasks
+#### Task INFRA-F2: State Management & Data Layer Architecture
+**Dependencies**: Task CI-2 (Frontend CI/CD pipeline) completed
+**Parallel**: Can run with INFRA-F1, INFRA-F3, INFRA-F4 and all Backend Foundation tasks
 **Staging Deployment**: Deploy state management integration to staging after completion
 
 **Objective**: Implement client-side state management and API client architecture with staging verification
@@ -478,9 +584,9 @@ Staging Environment:
 - State persists across browser sessions on staging environment
 - Manual setup documentation complete with configuration checklists
 
-#### Task B3: Design System & Component Library
-**Dependencies**: Task X2 (Frontend CI/CD pipeline) completed
-**Parallel**: Can run with B1, B2, B4 and all Backend Foundation tasks
+#### Task INFRA-F3: Design System & Component Library (MUI 6)
+**Dependencies**: Task CI-2 (Frontend CI/CD pipeline) completed
+**Parallel**: Can run with INFRA-F1, INFRA-F2, INFRA-F4 and all Backend Foundation tasks
 **Staging Deployment**: Deploy design system to staging after completion
 
 **Objective**: Create comprehensive design system and reusable component library with staging verification
@@ -521,9 +627,9 @@ Staging Environment:
 - Component library well-documented with staging examples
 - Manual setup documentation complete with design system guidelines
 
-#### Task B4: Frontend Security & Performance Infrastructure
-**Dependencies**: Task X2 (Frontend CI/CD pipeline) completed
-**Parallel**: Can run with B1, B2, B3 and all Backend Foundation tasks
+#### Task INFRA-F4: Frontend Security & Performance Infrastructure
+**Dependencies**: Task CI-2 (Frontend CI/CD pipeline) completed
+**Parallel**: Can run with INFRA-F1, INFRA-F2, INFRA-F3 and all Backend Foundation tasks
 **Staging Deployment**: Deploy security and performance optimizations to staging after completion
 
 **Objective**: Implement frontend security measures and performance optimizations with staging verification
@@ -566,14 +672,14 @@ Staging Environment:
 
 ---
 
-## 6. Phase 2: Backend Core Development Tasks
+## 5. Phase 2: Backend Core Development Tasks
 
 ### Backend Core Services (Sequential Dependencies with Incremental Staging Deployment)
 
 **Phase 2 Milestone**: Deploy functional chat platform to staging with authentication, thread management, and basic AI model integration after each core task completion.
 
-#### Task C1: User Management & Authentication API
-**Dependencies**: Tasks A1, A2, A3 completed and deployed to staging
+#### Task BACK-1: User Management & Authentication API
+**Dependencies**: Tasks INFRA-B1, INFRA-B2, INFRA-B3 completed and deployed to staging
 **Staging Deployment**: Deploy authentication system to staging immediately after completion
 
 **Objective**: Implement complete user authentication system with admin user management and immediate staging verification
@@ -622,9 +728,9 @@ Staging Environment:
 - All authentication security requirements met on staging
 - Manual setup documentation complete with user management checklists
 
-#### Task C2: Thread Management & CRUD Operations
+#### Task BACK-2: Thread Management & CRUD Operations
 **Duration**: 4 hours
-**Dependencies**: Task C1 completed
+**Dependencies**: Task BACK-1 completed
 
 **Objective**: Implement thread management with full CRUD operations and pagination
 
@@ -657,9 +763,9 @@ Staging Environment:
 - Search returns relevant results quickly
 - Thread authorization prevents unauthorized access
 
-#### Task C3: Message Management & Context Assembly
+#### Task BACK-3: Message Management & Context Assembly
 **Duration**: 4 hours
-**Dependencies**: Task C2 completed
+**Dependencies**: Task BACK-2 completed
 
 **Objective**: Implement message storage, retrieval, and conversation context management
 
@@ -691,9 +797,9 @@ Staging Environment:
 - Token limits enforced and context trimmed appropriately
 - Message operations maintain data integrity
 
-#### Task C4: Model Configuration & Catalog Management
+#### Task BACK-4: Model Configuration & Catalog Management
 **Duration**: 3 hours
-**Dependencies**: Task C1 completed (can run parallel with C2)
+**Dependencies**: Task BACK-1 completed (can run parallel with BACK-2)
 
 **Objective**: Implement model catalog management and configuration system
 
@@ -723,9 +829,9 @@ Staging Environment:
 - API key requirements enforced for premium models
 - Model status accurately reflects availability
 
-#### Task C5: AI Model Integration & Proxy Layer
+#### Task BACK-5: AI Model Integration & Proxy Layer
 **Duration**: 6 hours
-**Dependencies**: Tasks C3, C4 completed
+**Dependencies**: Tasks BACK-3, BACK-4 completed
 
 **Objective**: Implement unified AI model proxy supporting multiple providers with streaming
 
@@ -756,9 +862,9 @@ Staging Environment:
 - Provider errors handled gracefully with retries
 - Rate limiting prevents API abuse
 
-#### Task C6: Ollama Integration & Model Loading
+#### Task BACK-6: Ollama Integration & Model Loading
 **Duration**: 4 hours
-**Dependencies**: Task C5 completed
+**Dependencies**: Task BACK-5 completed
 
 **Objective**: Implement Ollama integration for local model execution
 
@@ -788,9 +894,9 @@ Staging Environment:
 - Process supervision maintains Ollama availability
 - Resource usage monitored and controlled
 
-#### Task C7: Summarization & Title Generation System
+#### Task BACK-7: Summarization & Title Generation System
 **Duration**: 4 hours
-**Dependencies**: Tasks C5, C6 completed
+**Dependencies**: Tasks BACK-5, BACK-6 completed
 
 **Objective**: Implement automatic summarization and title generation with async processing
 
@@ -822,15 +928,15 @@ Staging Environment:
 
 ---
 
-## 7. Phase 3: Frontend Core Development Tasks
+## 6. Phase 3: Frontend Core Development Tasks
 
 ### Frontend Core Components (Mixed Dependencies with Staging Deployment)
 
 **Phase 3 Milestone**: Deploy complete user-facing chat interface to staging with full functionality after each component completion.
 
-#### Task D1: Authentication & Login System
+#### Task FRONT-1: Authentication & Login System
 **Duration**: 3 hours
-**Dependencies**: Tasks B1, B2 completed; Task C1 API contracts defined
+**Dependencies**: Tasks INFRA-F1, INFRA-F2 completed; Task BACK-1 API contracts defined
 
 **Objective**: Implement complete login system with JWT token management
 
@@ -861,9 +967,9 @@ Staging Environment:
 - Authentication state persists across browser sessions
 - Protected routes redirect unauthenticated users
 
-#### Task D2: Application Layout & Navigation
+#### Task FRONT-2: Application Layout & Navigation
 **Duration**: 3 hours
-**Dependencies**: Tasks B1, B3 completed
+**Dependencies**: Tasks INFRA-F1, INFRA-F3 completed
 
 **Objective**: Create main application layout with responsive navigation
 
@@ -893,9 +999,9 @@ Staging Environment:
 - User controls are accessible from all pages
 - Navigation state managed consistently
 
-#### Task D3: Thread Management Interface
+#### Task FRONT-3: Thread Management Interface
 **Duration**: 4 hours
-**Dependencies**: Tasks D2 completed; Task C2 API contracts defined
+**Dependencies**: Tasks FRONT-2 completed; Task BACK-2 API contracts defined
 
 **Objective**: Implement complete thread management UI with CRUD operations
 
@@ -927,9 +1033,9 @@ Staging Environment:
 - Search returns relevant results
 - Thread operations provide appropriate feedback
 
-#### Task D4: Model Selection & Configuration Interface
+#### Task FRONT-4: Model Selection & Configuration Interface
 **Duration**: 3 hours
-**Dependencies**: Tasks D2 completed; Task C4 API contracts defined
+**Dependencies**: Tasks FRONT-2 completed; Task BACK-4 API contracts defined
 
 **Objective**: Create model selection interface with configuration options
 
@@ -960,9 +1066,9 @@ Staging Environment:
 - Local model loading shows progress and status
 - Model settings persist across sessions
 
-#### Task D5: Chat Interface & Message Display
+#### Task FRONT-5: Chat Interface & Message Display
 **Duration**: 5 hours
-**Dependencies**: Tasks D3, D4 completed; Task C3 API contracts defined
+**Dependencies**: Tasks FRONT-3, FRONT-4 completed; Task BACK-3 API contracts defined
 
 **Objective**: Implement real-time chat interface with message streaming
 
@@ -995,9 +1101,9 @@ Staging Environment:
 - Message input supports rich text formatting
 - Message history loads efficiently with pagination
 
-#### Task D6: Profile & Settings Management
+#### Task FRONT-6: Profile & Settings Management
 **Duration**: 3 hours
-**Dependencies**: Tasks D2 completed; Task C1 API contracts defined
+**Dependencies**: Tasks FRONT-2 completed; Task BACK-1 API contracts defined
 
 **Objective**: Create user profile and settings management interface
 
@@ -1028,9 +1134,9 @@ Staging Environment:
 - System prompt changes take effect immediately
 - Settings persist across browser sessions
 
-#### Task D7: Health Monitoring & System Status Display
+#### Task FRONT-7: Health Monitoring & System Status Display
 **Duration**: 2 hours
-**Dependencies**: Tasks D2 completed; Backend health API available
+**Dependencies**: Tasks FRONT-2 completed; Backend health API available
 
 **Objective**: Implement system health monitoring display in UI
 
@@ -1063,15 +1169,15 @@ Staging Environment:
 
 ---
 
-## 8. Phase 4: Advanced Features & Production Readiness
+## 7. Phase 4: Advanced Features & Production Readiness
 
 ### Integration, Testing & Production Deployment (Sequential Dependencies)
 
 **Phase 4 Milestone**: Deploy fully tested and production-ready system with comprehensive monitoring and operational procedures.
 
-#### Task E1: API Contract Validation & Integration Testing
+#### Task INT-1: API Contract Validation & Integration Testing
 **Duration**: 3 hours
-**Dependencies**: All backend API endpoints implemented (C1-C7)
+**Dependencies**: All backend API endpoints implemented (BACK-1 to BACK-7)
 
 **Objective**: Validate all API contracts and create comprehensive integration tests
 
@@ -1096,9 +1202,9 @@ Staging Environment:
 - Error scenarios properly tested and handled
 - Test data generation supports all use cases
 
-#### Task E2: Frontend-Backend Integration Testing
+#### Task INT-2: Frontend-Backend Integration Testing
 **Duration**: 4 hours
-**Dependencies**: Task E1 completed, frontend components D1-D7 completed
+**Dependencies**: Task INT-1 completed, frontend components FRONT-1 to FRONT-7 completed
 
 **Objective**: Comprehensive end-to-end testing of frontend-backend integration
 
@@ -1124,9 +1230,9 @@ Staging Environment:
 - Application works across supported browsers
 - Mobile experience is fully functional
 
-#### Task E3: Load Testing & Performance Validation
+#### Task INT-3: Load Testing & Performance Validation
 **Duration**: 3 hours
-**Dependencies**: Task E2 completed
+**Dependencies**: Task INT-2 completed
 
 **Objective**: Validate system performance under realistic load conditions
 
@@ -1151,7 +1257,7 @@ Staging Environment:
 - Resource usage stays within acceptable limits
 - No memory leaks or performance degradation over time
 
-#### Task E4: Security Testing & Vulnerability Assessment
+#### Task INT-4: Security Testing & Vulnerability Assessment
 **Duration**: 2 hours
 **Dependencies**: All previous integration testing completed
 
@@ -1183,9 +1289,9 @@ Staging Environment:
 
 ### Advanced Features & Production Operations (Integrated into Phase 4)
 
-#### Task F1: Backend CI/CD Pipeline & Docker Containerization
+#### Task DEPLOY-1: Backend CI/CD Pipeline & Docker Containerization
 **Duration**: 4 hours
-**Dependencies**: All backend tasks (C1-C7) completed
+**Dependencies**: All backend tasks (BACK-1 to BACK-7) completed
 
 **Objective**: Complete CI/CD pipeline for backend with Docker containerization including Ollama
 
@@ -1212,10 +1318,10 @@ Staging Environment:
 - Deployments are automated and reliable
 - Security scanning integrated and passing
 
-#### Task F2: Frontend CI/CD Pipeline & Firebase Hosting
+#### Task DEPLOY-2: Frontend CI/CD Pipeline & Firebase Hosting
 **Duration**: 3 hours
-**Dependencies**: All frontend tasks (D1-D7) completed
-**Parallel**: Can run simultaneously with Task F1
+**Dependencies**: All frontend tasks (FRONT-1 to FRONT-7) completed
+**Parallel**: Can run simultaneously with Task DEPLOY-1
 
 **Objective**: Complete CI/CD pipeline for frontend with Firebase Hosting deployment
 
@@ -1242,10 +1348,10 @@ Staging Environment:
 - E2E tests run against deployed environments
 - Multiple environment deployments working
 
-#### Task F3: Infrastructure as Code & Environment Configuration
+#### Task DEPLOY-3: Infrastructure as Code & Environment Configuration
 **Duration**: 2 hours
 **Dependencies**: None (can start early)
-**Parallel**: Can run with F1 and F2
+**Parallel**: Can run with DEPLOY-1 and DEPLOY-2
 
 **Objective**: Define infrastructure and environment configurations as code
 
@@ -1271,9 +1377,9 @@ Staging Environment:
 - Secrets managed securely
 - Monitoring and alerting functional
 
-#### Task F4: Production Readiness & Operational Procedures
+#### Task DEPLOY-4: Production Readiness & Operational Procedures
 **Duration**: 1.5 hours
-**Dependencies**: Tasks F1, F2, F3 completed
+**Dependencies**: Tasks DEPLOY-1, DEPLOY-2, DEPLOY-3 completed
 
 **Objective**: Finalize production readiness with operational procedures and documentation
 
@@ -1301,71 +1407,14 @@ Staging Environment:
 
 ---
 
-## 9. Task Dependencies Matrix
 
-### Critical Path Dependencies
-
-```mermaid
-graph TD
-    A1[Backend Scaffolding] --> C1[User Management API]
-    A2[Database Layer] --> C1
-    A3[Auth Infrastructure] --> C1
-    C1 --> C2[Thread Management]
-    C2 --> C3[Message Management]
-    C1 --> C4[Model Catalog]
-    C3 --> C5[AI Model Integration]
-    C4 --> C5
-    C5 --> C6[Ollama Integration]
-    C5 --> C7[Summarization System]
-
-    B1[Frontend Scaffolding] --> D1[Login System]
-    B2[State Management] --> D1
-    D1 --> D2[App Layout]
-    D2 --> D3[Thread Interface]
-    D2 --> D4[Model Selection]
-    D3 --> D5[Chat Interface]
-    D4 --> D5
-
-    C1 --> D1
-    C2 --> D3
-    C4 --> D4
-    C3 --> D5
-
-    C7 --> E1[API Contract Testing]
-    D7 --> E1
-    E1 --> E2[E2E Integration Testing]
-    E2 --> E3[Load Testing]
-    E3 --> E4[Security Testing]
-
-    E4 --> F1[Backend CI/CD]
-    E4 --> F2[Frontend CI/CD]
-    F1 --> F4[Production Readiness]
-    F2 --> F4
-    F3[Infrastructure as Code] --> F4
-```
-
-### Parallel Execution Opportunities
-
-**Phase 1 - Foundation (All Parallel)**
-- Tasks A1, A2, A3, A4 (Backend Foundation)
-- Tasks B1, B2, B3, B4 (Frontend Foundation)
-
-**Phase 2 - Core Development (Sequential within streams, parallel across streams)**
-- Stream C: C1 → C2 → C3 → C5 → C6 → C7 (with C4 parallel to C2)
-- Stream D: D1 → D2 → (D3, D4 parallel) → D5 → (D6, D7 parallel)
-
-**Phase 3 - Integration (Sequential)**
-- Tasks E1 → E2 → E3 → E4
-
-**Phase 4 - Deployment (Mostly Parallel)**
-- Tasks F1, F2, F3 (parallel) → F4
 
 ---
 
-## 10. Critical Path Analysis
+## 8. Critical Path Analysis
 
-### Critical Path (Revised for CI/CD-First Approach):
-**Path**: X1 → X2 → X3 → A1-A4 → C1 → C2 → C3 → C5 → D1 → D2 → D5 → Production Deployment
+### Critical Path (CI/CD-First Approach):
+**Path**: CI-1,CI-2,CI-3 → INFRA-B1-B4,INFRA-F1-F4 → BACK-1 → BACK-2 → BACK-3 → BACK-5 → FRONT-1 → FRONT-2 → FRONT-5 → INT-1,INT-2,INT-3,INT-4 → DEPLOY-1,DEPLOY-2,DEPLOY-3,DEPLOY-4
 
 ### Key Changes from Original Plan:
 1. **Phase 0 Priority**: CI/CD infrastructure must be completed before any development work
@@ -1387,14 +1436,14 @@ graph TD
 
 ---
 
-## 11. Resource Requirements
+## 9. Resource Requirements
 
 ### Development Environment Requirements:
-- **Node.js**: LTS version (18.x or 20.x)
+- **Node.js**: 22.x LTS (latest stable)
 - **Docker & Docker Compose**: For local development and testing
 - **Firebase CLI**: For database emulator and hosting
 - **Git**: For version control
-- **Code Editor**: VS Code or equivalent with TypeScript support
+- **Code Editor**: VS Code or equivalent with TypeScript and React 19 support
 
 ### External Service Requirements:
 - **GitHub**: Repository hosting and Actions CI/CD
@@ -1410,9 +1459,9 @@ graph TD
 
 ---
 
-## 12. Milestone Gates & Staging Verification
+## 10. Milestone Gates & Staging Verification
 
-### Milestone 0: CI/CD & Staging Environment Operational (After Tasks X1, X2, X3)
+### Milestone 0: CI/CD & Staging Environment Operational (After Tasks CI-1, CI-2, CI-3)
 **Staging Verification**:
 - Backend health check accessible via staging URL
 - Frontend loading on Firebase Hosting staging URL
@@ -1425,7 +1474,7 @@ graph TD
 - Complete manual setup documentation created
 - Infrastructure defined as code and version controlled
 
-### Milestone 1: Foundation with Basic Authentication on Staging (After Tasks A1-A4, B1-B4, C1)
+### Milestone 1: Foundation with Basic Authentication on Staging (After Tasks INFRA-B1 to INFRA-B4, INFRA-F1 to INFRA-F4, BACK-1)
 **Staging Verification**:
 - User can access login page on staging frontend
 - Backend authentication endpoints responding on staging
@@ -1439,7 +1488,7 @@ graph TD
 - Manual testing checklist completed and documented
 - All tests passing in CI/CD pipeline
 
-### Milestone 2: Core Chat Functionality on Staging (After Tasks C2, C3, C4, C5, D1-D5)
+### Milestone 2: Core Chat Functionality on Staging (After Tasks BACK-2, BACK-3, BACK-4, BACK-5, FRONT-1 to FRONT-5)
 **Staging Verification**:
 - User can create threads on staging
 - User can send messages and receive AI responses on staging
@@ -1453,7 +1502,7 @@ graph TD
 - Frontend components rendering properly on staging
 - Manual testing of all major user workflows completed
 
-### Milestone 3: Full Feature Set on Staging (After Tasks C6, C7, D6, D7, E1, E2)
+### Milestone 3: Full Feature Set on Staging (After Tasks BACK-6, BACK-7, FRONT-6, FRONT-7, INT-1, INT-2)
 **Staging Verification**:
 - Ollama models loading and working on staging
 - Automatic summarization functional on staging
@@ -1467,7 +1516,7 @@ graph TD
 - Performance requirements met on staging
 - Security testing completed with no critical issues
 
-### Milestone 4: Production Deployment Ready (After Tasks E3, E4)
+### Milestone 4: Production Deployment Ready (After Tasks INT-3, INT-4)
 **Staging Verification**:
 - Load testing completed successfully on staging
 - Security validation passed on staging
@@ -1489,7 +1538,7 @@ graph TD
 
 ---
 
-## 13. Manual Setup Documentation Requirements
+## 11. Manual Setup Documentation Requirements
 
 Every task must include comprehensive documentation of manual setup procedures to ensure reproducibility and operational success.
 
@@ -1568,21 +1617,45 @@ Each milestone must include:
 
 ---
 
-## Summary of Restructured Approach
+## Implementation Success Metrics
 
-This restructured roadmap prioritizes:
+### Code Quality Metrics
+- **Test Coverage**: Minimum 80% for critical paths
+- **Code Quality**: No critical issues in static analysis
+- **Performance**: All API responses under 200ms (95th percentile)
+- **Security**: No high or critical vulnerabilities
+- **Bundle Size**: <500KB initial load
 
-1. **CI/CD-First Development**: Deployment infrastructure established before any feature work
-2. **Incremental Staging Deployment**: Each milestone immediately deployed for verification
-3. **Manual Setup Documentation**: Complete procedures documented for reproducibility
-4. **Continuous Verification**: Functionality tested on staging after each deployment
-5. **Risk Mitigation**: Issues identified early through continuous deployment
+### Operational Metrics
+- **Deployment Success Rate**: 100% success for CI/CD deployments
+- **System Uptime**: 99.9% availability during testing
+- **Error Rate**: Less than 1% error rate for all endpoints
+- **Response Times**: Real-time chat responses within 100ms
 
-This approach enables coding agents to:
-- Verify their work through deployed staging environments
-- Document all manual procedures for human operators
-- Deploy incrementally with reduced risk
-- Maintain continuous visibility into system progress
-- Ensure production readiness through staged verification
+### User Experience Metrics
+- **Accessibility**: WCAG 2.1 AA compliance
+- **Browser Support**: Working on all major browsers (Chrome, Firefox, Safari, Edge)
+- **Mobile Support**: Fully functional on mobile devices
+- **React 19 Features**: Proper concurrent features implementation
+- **Material-UI 6**: Consistent theme and component usage
 
-The roadmap provides the foundation for generating detailed, self-sufficient coding agent prompts that can execute the LLM Chat Platform implementation with CI/CD-first approach, incremental deployment, and comprehensive operational documentation.
+---
+
+## Implementation Approach Summary
+
+This implementation roadmap provides a structured approach for autonomous coding agents with:
+
+### Key Principles
+1. **Environment Parity**: Staging mirrors production exactly (4Gi/2CPU)
+2. **Modern Stack**: Node.js 22, React 19, Material-UI 6, TypeScript 5
+3. **CI/CD-First**: Deployment infrastructure established before feature development
+4. **Clear Dependencies**: Explicit task relationships with parallel execution opportunities
+5. **Measurable Quality**: Concrete acceptance criteria and performance targets
+
+### Task Organization
+- **Total Tasks**: 27 tasks across 4 phases
+- **Naming Convention**: CI-# (CI/CD), INFRA-B#/F# (Infrastructure), BACK-# (Backend), FRONT-# (Frontend), INT-# (Integration), DEPLOY-# (Deployment)
+- **Critical Path**: ~52 hours with parallel execution opportunities
+- **Environment Strategy**: Continuous staging deployment with production parity
+
+This roadmap enables efficient implementation with clear guidance, proper testing, and operational readiness from day one.
