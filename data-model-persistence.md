@@ -36,11 +36,11 @@ Database Root
 
 ### Design Principles
 
-- **Denormalization for Performance**: Optimize for read operations and real-time updates
-- **Atomic Operations**: Design updates to be atomic within document boundaries
-- **Scalable Pagination**: Use cursor-based pagination for all list operations
-- **Real-time Capable**: Structure supports Firebase real-time listeners
-- **Security First**: All API keys encrypted, content sanitized, access controlled
+- Optimize for read operations and real-time updates
+- Atomic updates within document boundaries
+- Cursor-based pagination for all lists
+- Firebase real-time listeners support
+- Encrypted API keys with access control
 
 ---
 
@@ -465,36 +465,19 @@ Each model follows the `ModelConfigDocument` interface with specific configurati
 
 ---
 
-## 7. Design Principles
+## 7. Implementation
 
-### 7.1 Data Validation
+### Data Validation
+- Client and server-side validation
+- TypeScript schema validation
+- Input sanitization (XSS prevention)
+- API key format validation
 
-**Validation Strategy:**
-- Client-side validation for immediate user feedback
-- Server-side validation for security and data integrity
-- Schema-based validation using TypeScript interfaces
-- Custom validation rules for business logic
-
-**Key Validation Areas:**
-- User input sanitization (prevent XSS, injection attacks)
-- API key format validation before encryption
-- Message content length and format validation
-- Model configuration parameter validation
-
-### 7.2 Security & Encryption
-
-**Security Principles:**
-- All API keys encrypted using AES-256-GCM
-- User passwords hashed with bcrypt (cost factor 12+)
-- Content sanitization for all user inputs
-- Role-based access control for all operations
-- Audit logging for sensitive operations
-
-**Data Protection:**
-- API keys encrypted with user-specific salts
-- Automatic key rotation capabilities
-- Secure key storage with hash verification
-- No plaintext sensitive data in database
+### Security & Encryption
+- API keys encrypted with AES-256-GCM
+- bcrypt password hashing (cost 12+)
+- Content sanitization for all inputs
+- Role-based access control
 
 
 ---

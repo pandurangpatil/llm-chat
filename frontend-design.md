@@ -451,60 +451,17 @@ Key user journeys and their implementation patterns.
 7. If valid, key encrypted and stored via `POST /api/profile/api-keys`
 8. Models requiring that provider become available in model selector
 
-## 7. Responsive Design Strategy
+## 7. Responsive Design
 
-The application adapts across different screen sizes and devices.
+- **Mobile**: < 640px - collapsible sidebar, full-width chat
+- **Tablet**: 640px - 1024px - overlay sidebar, compact controls
+- **Desktop**: > 1024px - full sidebar layout
+- **Accessibility**: ARIA labels, keyboard navigation, screen reader support
 
-### Breakpoint System
+## 8. Performance
 
-- **Mobile**: < 640px (single column, collapsible sidebar)
-- **Tablet**: 640px - 1024px (sidebar overlay, compact controls)
-- **Desktop**: > 1024px (full layout with sidebar)
-
-### Mobile Adaptations
-
-- Sidebar becomes slide-over modal
-- Message input moves to bottom fixed position
-- Model selector becomes bottom sheet
-- Chat area uses full viewport height
-- Touch-optimized button sizes (44px minimum)
-
-### Tablet Adaptations
-
-- Sidebar width reduces to 280px
-- Model controls stack vertically
-- Temperature slider becomes larger touch target
-- Thread cards use horizontal layout
-
-### Accessibility Features
-
-- ARIA labels for all interactive elements
-- Keyboard navigation support
-- Focus management for modals and dropdowns
-- Screen reader announcements for streaming messages
-- High contrast mode support
-- Reduced motion preferences
-
-## 8. Performance Optimizations
-
-Strategies to ensure optimal application performance.
-
-### Code Splitting
-
-- Route-based code splitting for each page
-- Lazy loading of admin panel components
-- Dynamic imports for heavy dependencies
-
-### State Optimization
-
-- Virtualized scrolling for large message lists
-- Debounced search input (300ms)
-- Memoized expensive computations
-- Selective re-renders with React.memo
-
-### Network Optimization
-
-- Request deduplication for model status checks
-- Optimistic updates for message sending
-- Background prefetching of thread data
-- Compression for large message payloads
+- Route-based code splitting
+- Virtualized scrolling for long message lists
+- Debounced search (300ms)
+- React.memo for selective re-renders
+- Request deduplication and optimistic updates

@@ -1,6 +1,6 @@
-# CI/CD Setup Strategy - LLM Chat Platform
+# CI/CD Setup - LLM Chat Platform
 
-This document provides a comprehensive CI/CD implementation strategy specifically tailored for the LLM Chat platform's two-repository architecture, tech stack, and deployment requirements.
+CI/CD implementation for the LLM Chat platform's two-repository architecture with Node.js backend and React frontend.
 
 ## Table of Contents
 
@@ -98,11 +98,10 @@ The LLM Chat platform uses a **dual-repository architecture** with distinct CI/C
 ### Pipeline Stages Implementation
 
 #### Stage 1: Code Validation
-- **Environment**: Ubuntu latest with Node.js 20
-- **Dependency management**: npm ci with caching
-- **Code quality**: Linting, type checking, unit tests
-- **Coverage reporting**: Generate and upload to Codecov
-- **Required scripts**: `lint`, `type-check`, `test:unit`, `test:coverage`
+- **Environment**: Ubuntu latest with Node.js LTS
+- **Dependencies**: npm ci with caching
+- **Quality**: Linting, type checking, unit tests
+- **Required scripts**: `lint`, `type-check`, `test:unit`
 
 #### Stage 2: Integration Testing
 - **Dependencies**: Requires validation stage completion
@@ -136,7 +135,7 @@ The LLM Chat platform uses a **dual-repository architecture** with distinct CI/C
 - **Service**: Deploy to `llm-chat-backend-staging` in `us-central1` region
 - **Environment variables**: NODE_ENV=staging, VERSION
 - **Secrets**: JWT_SECRET_STAGING, FIREBASE_ADMIN_KEY_STAGING, SYSTEM_ENCRYPTION_KEY_STAGING from Secret Manager
-- **Resource limits**: 2Gi memory, 1 CPU, 0-3 instances
+- **Resource limits**: 2Gi memory, 1 CPU, 0-2 instances
 - **Health validation**: Post-deployment health and version endpoint checks
 
 #### Stage 5b: Cloud Run Production Deployment
@@ -146,7 +145,7 @@ The LLM Chat platform uses a **dual-repository architecture** with distinct CI/C
 - **Service**: Deploy to `llm-chat-backend` in `us-central1` region
 - **Environment variables**: NODE_ENV=production, VERSION
 - **Secrets**: JWT_SECRET, FIREBASE_ADMIN_KEY, SYSTEM_ENCRYPTION_KEY from Secret Manager
-- **Resource limits**: 4Gi memory, 2 CPU, 0-10 instances
+- **Resource limits**: 4Gi memory, 2 CPU, 0-2 instances
 - **Health validation**: Post-deployment health and version endpoint checks
 
 ### Backend-Specific Considerations
@@ -170,10 +169,9 @@ The LLM Chat platform uses a **dual-repository architecture** with distinct CI/C
 ### Pipeline Stages Implementation
 
 #### Stage 1: Code Validation
-- **Environment**: Ubuntu latest with Node.js 20 and npm caching
-- **Quality checks**: Linting, type checking, unit tests, coverage reports
-- **Coverage upload**: Codecov integration
-- **Required scripts**: `lint`, `type-check`, `test:unit`, `test:coverage`
+- **Environment**: Ubuntu latest with Node.js LTS
+- **Quality checks**: Linting, type checking, unit tests
+- **Required scripts**: `lint`, `type-check`, `test:unit`
 
 #### Stage 2: Integration Testing
 - **Dependencies**: Requires validation stage completion
@@ -263,10 +261,10 @@ The LLM Chat platform uses a **dual-repository architecture** with distinct CI/C
 ### Test-Driven Development Integration
 
 #### Unit Testing Pipeline
-- **Matrix strategy**: Test against Node.js versions 18 and 20
-- **Backend testing**: Jest with coverage reports and CI-optimized settings
-- **Frontend testing**: Vitest with JUnit reporting and coverage
-- **Configuration**: No watch mode for CI, coverage reporting enabled
+- **Node.js version**: Latest LTS only
+- **Backend testing**: Jest with CI-optimized settings
+- **Frontend testing**: Vitest with JUnit reporting
+- **Configuration**: No watch mode for CI
 
 #### Integration Testing with Firebase Emulator
 - **Emulator setup**: Start Firebase database and auth emulators
@@ -306,8 +304,8 @@ The LLM Chat platform uses a **dual-repository architecture** with distinct CI/C
 - **Service name**: llm-chat-backend-staging
 - **Ingress**: Allow all traffic
 - **CPU configuration**: 1 CPU limit, 0.5 CPU request, no throttling
-- **Memory configuration**: 2Gi limit, 1Gi request (reduced for cost optimization)
-- **Scaling**: 0-3 instances with scale-to-zero capability
+- **Memory configuration**: 2Gi limit, 1Gi request
+- **Scaling**: 0-2 instances with scale-to-zero capability
 - **Container port**: 3000 for Node.js application
 - **Environment**: Staging NODE_ENV with PORT configuration
 - **Image source**: GHCR with stage-tagged images from CI/CD pipeline
@@ -317,8 +315,8 @@ The LLM Chat platform uses a **dual-repository architecture** with distinct CI/C
 - **Service name**: llm-chat-backend
 - **Ingress**: Allow all traffic
 - **CPU configuration**: 2 CPU limit, 1 CPU request, no throttling
-- **Memory configuration**: 4Gi limit, 2Gi request (optimized for Ollama)
-- **Scaling**: 0-10 instances with scale-to-zero capability
+- **Memory configuration**: 4Gi limit, 2Gi request (for Ollama)
+- **Scaling**: 0-2 instances with scale-to-zero capability
 - **Container port**: 3000 for Node.js application
 - **Environment**: Production NODE_ENV with PORT configuration
 - **Image source**: GHCR with latest tag from CI/CD pipeline
@@ -410,13 +408,11 @@ The LLM Chat platform uses a **dual-repository architecture** with distinct CI/C
 
 ### Semantic Versioning Implementation
 
-#### Automated Version Bumping
-- **Script location**: scripts/version-bump.js
-- **Version detection**: Read current version from package.json
-- **Bump types**: patch (default), minor, major based on environment variable
-- **Semantic versioning**: Uses semver package for version increment
-- **Package update**: Automatically updates package.json with new version
-- **Logging**: Console output for version change tracking
+#### Version Management
+- **Version embedding**: Version injected during build process
+- **No commit bumps**: Version managed in CI/CD pipeline only
+- **Semantic versioning**: patch/minor/major via environment variables
+- **Build-time injection**: Version embedded in Docker image and frontend build
 
 #### Release Notes Generation
 - **Tool**: release-drafter GitHub Action
@@ -441,13 +437,12 @@ The LLM Chat platform uses a **dual-repository architecture** with distinct CI/C
 
 ## 10. Environment Configuration
 
-### Multi-Environment Setup
+### Environment Setup
 
-#### Environment Hierarchy
-- **Development**: Local development with Firebase Emulator
-- **Staging**: Integration testing environment
-- **Production**: Live production environment
-- **Flow**: Development → Staging → Production with validation gates
+- **Development**: Local with Firebase Emulator
+- **Staging**: Integration testing
+- **Production**: Live environment
+- **Flow**: Development → Staging → Production
 
 #### Environment-Specific Configuration
 
@@ -618,7 +613,7 @@ The LLM Chat platform uses a **dual-repository architecture** with distinct CI/C
 ### Cloud Run Cost Optimization
 
 #### Resource Configuration
-- **Memory limits**: 4Gi for Gemma 2B model requirements
+- **Memory limits**: 4Gi for Gemma 2B
 - **Memory requests**: 1Gi minimum for startup
 - **CPU limits**: 2 cores for model inference
 - **CPU requests**: 0.5 cores for normal operation
@@ -626,7 +621,7 @@ The LLM Chat platform uses a **dual-repository architecture** with distinct CI/C
 
 #### Scaling Configuration
 - **Minimum scale**: 0 instances (scale-to-zero for cost optimization)
-- **Maximum scale**: 5 instances (limit concurrent instances)
+- **Maximum scale**: 2 instances
 - **CPU throttling**: Disabled to maintain inference performance
 - **Cost balance**: Optimize between availability and resource costs
 

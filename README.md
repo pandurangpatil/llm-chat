@@ -1,4 +1,4 @@
-# LLM Chat Application - Initial Design
+# LLM Chat Application - Simple Design
 
 **Single-container Cloud Run backend + Vite/React frontend (two repos)**
 
@@ -67,18 +67,17 @@
 
 ## 2 — Confirmed Decisions
 
-- **Two repos**: backend (Node.js + TypeScript + Express) and frontend (Vite + React)
+- **Two repos**: backend (Node.js LTS + TypeScript + Express) and frontend (Vite + React)
 - **Backend and Ollama** (Gemma 2 2B) will run together inside the same Cloud Run Docker container; Ollama runs as a separate process started by the container
-- **Storage**: Firebase Realtime Database for both production and local/dev (using Firebase Emulator for local). DB provider selected by env var
-- **Per-user API keys** (Claude, Google, ChatGPT) are stored encrypted in DB (encrypted with system key stored in Secret Manager/KMS)
-- **No user registration/reset API**: an admin Cloud Function and bundled CLI utility to create/update users (password hash)
-- **Model config** (available models, mapping to which API-key type, and allowed parameter constraints) is stored in DB and exposed via API for the frontend
-- **Summarization & title generation** processed inline within API calls - synchronous title generation using local Ollama (3-word summary), summarization async but triggered per call (non-blocking response)
-- **All CI/CD** done using GitHub Actions
-- **Docker images** pushed to GitHub Container Registry (GHCR). Deploy to Cloud Run from GHCR
-- **Frontend** is hosted on Firebase Hosting and deployed via GitHub Actions
-- **Implementation approach**: TDD (tests drive implementation). Postman/Newman integration tests executed in build stage using in-memory DB / firebase emulator
-- **No Redis** or external caching in initial design
+- **Storage**: Firebase Realtime Database (production) + Firebase Emulator (local/dev)
+- **Per-user API keys** stored encrypted in DB with system key from Secret Manager
+- **User management**: admin CLI utility for user creation (no self-registration)
+- **Model config** stored in DB and exposed via API
+- **Summarization & title generation** processed inline - synchronous title generation using local Ollama, async summarization per call
+- **CI/CD** via GitHub Actions
+- **Docker images** pushed to GHCR, deployed to Cloud Run
+- **Frontend** hosted on Firebase Hosting
+- **Testing**: TDD with Postman/Newman integration tests using Firebase emulator
 
 ---
 
@@ -150,16 +149,16 @@ All environments use the same architectural patterns but with environment-specif
 **Staging Environment:**
 - **Service Name**: `llm-chat-backend-staging`
 - **Resource Limits**: 2Gi memory, 1 CPU (reduced from production)
-- **Scaling**: 0-3 instances (limited for cost optimization)
+- **Scaling**: 0-2 instances (cost optimized)
 - **Database**: `llm-chat-staging` Firebase project
-- **Domain**: `api-staging.llm-chat.example.com`
+- **Domain**: `staging.api.chat.pandurangpatil.com`
 
 **Production Environment:**
 - **Service Name**: `llm-chat-backend`
 - **Resource Limits**: 4Gi memory, 2 CPU (optimized for Ollama)
-- **Scaling**: 0-10 instances (full production scaling)
+- **Scaling**: 0-2 instances
 - **Database**: `llm-chat-prod` Firebase project
-- **Domain**: `api.llm-chat.example.com`
+- **Domain**: `api.chat.pandurangpatil.com`
 
 #### Ollama Runtime (Local Model)
 
@@ -189,14 +188,14 @@ All environments use the same architectural patterns but with environment-specif
 
 **Staging Environment:**
 - **Firebase Project**: `llm-chat-staging`
-- **Hosting Site**: `staging.llm-chat.example.com`
+- **Hosting Site**: `staging.chat.pandurangpatil.com`
 - **Backend URL**: Points to staging backend API
 - **Deployment Trigger**: Push to `stage` branch
 - **Feature Flags**: Staging-specific feature toggles enabled
 
 **Production Environment:**
 - **Firebase Project**: `llm-chat-prod`
-- **Hosting Site**: `llm-chat.example.com`
+- **Hosting Site**: `chat.pandurangpatil.com`
 - **Backend URL**: Points to production backend API
 - **Deployment Trigger**: Push to `main` branch
 - **Feature Flags**: Production-ready features only
@@ -249,7 +248,7 @@ All environments use the same architectural patterns but with environment-specif
 
 #### Notes on scaling & cost
 
-Each new Cloud Run instance must load local model on demand. Document cost + latency. This is acceptable per requirement but needs planning for instance sizing and concurrency settings (e.g., set concurrency=1 for model-heavy instances or configure memory accordingly).
+Each Cloud Run instance loads local models on demand. Instances limited to 0-2 for cost control.
 
 ### Model Catalog & Configuration
 
@@ -309,12 +308,12 @@ Store full model catalog in `models_config` in DB. Example fields relevant to UI
 - Messages endpoint supports `limit` and `cursor` for infinite scroll. Frontend uses intersection observer to fetch next page on scroll
 - Search in `GET /api/threads?q=...` implemented server-side (title + model summaries)
 
-### Edge Cases & Operational Notes
+### Operational Notes
 
-- **Model loading failures**: surface clear error to user; persist failure reason in DB; allow retry
-- **Partial responses**: mark assistant message as partial and allow client to request fill or retry
-- **Scaling/Growth**: note that per-instance model loads can multiply resource consumption; document recommended concurrency / maxInstances settings for Cloud Run
-- **Backpressure**: restrict concurrent model calls per user to protect resources
+- **Model loading failures**: surface error to user with retry option
+- **Partial responses**: mark as partial with retry capability
+- **Scaling**: instances limited to 0-2 to control resource consumption
+- **Backpressure**: limit concurrent model calls per user
 
 ### Database Watcher Timeouts
 
@@ -323,7 +322,7 @@ Store full model catalog in `models_config` in DB. Example fields relevant to UI
 - **Summary Generation**: 60 second timeout for async summarization tasks
 - **Health Checks**: 5 second timeout for external service health verification
 - **Connection Cleanup**: Automatic cleanup of orphaned watchers after client disconnect
-- **Resource Limits**: Maximum 100 concurrent watchers per backend instance
+- **Resource Limits**: Maximum 50 concurrent watchers per backend instance
 - **Watcher Deregistration**: DB watchers are deregistered when message is complete, SSE connection closes, or timeout occurs
 - **Resource Management**: Explicit cleanup prevents memory leaks and ensures proper resource management
 
@@ -444,43 +443,17 @@ This section covers the complete CI/CD implementation strategy including GitHub 
 ---
 
 
-## 12 — Security & Hardening Checklist
+## 12 — Security Implementation
 
-### Authentication:
-- JWT tokens with strong signing key stored in Secret Manager (rotate periodically)
-- Use httpOnly + Secure cookies for auth by default
-
-### Encryption:
-- Encrypt per-user API keys before storing in DB using KMS-managed system key
-
-### Network:
-- Limit inbound for Cloud Run via IAM; Cloud Run private egress to access other systems
-
-### Input validation & Sanitization:
-- Sanitize Markdown rendered on frontend and server. Strip dangerous tags and attributes
-- Validate request payloads thoroughly; use schema validation (Zod/Joi)
-
-### Rate limiting:
-- Implement per-user and per-IP rate limits in backend (in-memory limiter for now)
-
-### Least-privilege:
-- Service accounts for Cloud Run have minimal permissions (only Firebase Admin, KMS decrypt if necessary)
-
-### Secrets:
-- Use Secret Manager for system secrets. Do not store raw secrets in DB or commit to repo
-
-### Logging:
-- Structured logs with request_id correlation; redact sensitive info
-
-### Dependency management:
-- Use automated Dependabot or similar to keep dependencies up-to-date
-
-### CI security:
-- Use GitHub OIDC to avoid long-lived cloud credentials
-
-### Vulnerability scanning:
-- Run container image vulnerability scan in CI before push/publish (optional GitHub Action)
-- Document all above steps and runbook for incident response
+- **JWT tokens** with signing key in Secret Manager
+- **httpOnly + Secure cookies** for authentication
+- **API keys encrypted** with KMS-managed system key
+- **Input validation** with Zod/Joi schema validation
+- **Rate limiting** per-user and per-IP
+- **Minimal service account permissions**
+- **Secret Manager** for system secrets
+- **GitHub OIDC** for CI authentication
+- **Container vulnerability scanning** in CI
 
 ---
 
@@ -490,9 +463,9 @@ This section covers the complete CI/CD implementation strategy including GitHub 
 
 This section describes milestone-by-milestone plans for the backend and frontend repos. Each milestone is TDD-first: write failing tests (unit / integration), implement code until tests pass, expand Postman/Newman integration tests, and ensure CI runs green.
 
-**Two important process-level rules:**
-1. The backend and frontend are separate repos. There must be a clearly documented, reproducible mechanism that a coding agent (or CI job) can use to start the backend service (test-mode or container) and keep it available for frontend integration/E2E tests
-2. Frontend CI/CD + deployment must be created in the first milestone of the frontend flow (not the last milestone)
+**Key requirements:**
+1. Backend and frontend are separate repos with documented test startup mechanism
+2. Frontend CI/CD + deployment implemented in first milestone
 
 ### Backend Flow (Backend API + Ollama process inside single container)
 

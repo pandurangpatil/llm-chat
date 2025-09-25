@@ -17,13 +17,12 @@ This document outlines the integration patterns between the frontend and backend
 11. [Testing Strategy](#11-testing-strategy)
 12. [Security Considerations](#12-security-considerations)
 
-## 1. Core Integration Patterns
+## 1. Integration Overview
 
-The system uses an **async streaming architecture** where:
-- API calls return immediately with tracking IDs (except title generation blocks briefly)
-- LLM processing happens asynchronously in the background
-- Real-time updates are delivered via Server-Sent Events (SSE)
-- DB watchers handle token streaming with explicit deregistration on completion or disconnect
+- API calls return immediately with tracking IDs
+- LLM processing happens asynchronously
+- Real-time updates via Server-Sent Events (SSE)
+- DB watchers handle token streaming
 
 ## 2. Authentication Flow
 
@@ -414,45 +413,25 @@ class MessageStreamClient {
 }
 ```
 
-## 10. Performance Considerations
+## 10. Performance
 
-### Connection Management
-- Limit concurrent SSE connections per user (max 3)
-- Implement connection pooling for backend
-- Use HTTP/2 for multiplexed connections
-- Explicit DB watcher deregistration to prevent resource leaks
+- Limit 3 concurrent SSE connections per user
+- Connection pooling and HTTP/2
+- Clean up completed message streams
+- Token array limits (10,000 max)
+- Cursor-based pagination
 
-### Memory Management
-- Clean up completed message streams from frontend state
-- Implement token array size limits in DB (max 10,000 tokens)
-- Use cursor-based pagination for message history
-- Deregister DB watchers on completion, disconnect, or timeout
-- Track active watchers to prevent resource exhaustion
+## 11. Testing
 
-## 11. Testing Strategy
-
-### Integration Tests
 - Mock LLM providers for deterministic responses
-- Test DB watcher timeout scenarios
-- Verify SSE connection cleanup
-- Test concurrent message streaming
+- Test DB watcher timeouts and SSE cleanup
+- End-to-end conversation flows
+- Network failure recovery scenarios
 
-### End-to-End Tests
-- Full conversation flows with real streaming
-- Model loading and switching scenarios
-- Network failure recovery
-- Performance under load
+## 12. Security
 
-## 12. Security Considerations
-
-### SSE Security
 - JWT validation on SSE connections
 - Rate limiting per user and IP
 - Message ownership verification
-- XSS protection in token content
-
-### Data Privacy
 - Token content sanitization
-- Secure message storage encryption
-- Audit logging for message access
-- API key encryption in transit and at rest
+- API key encryption

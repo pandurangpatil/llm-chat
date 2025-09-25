@@ -15,13 +15,13 @@ The backend follows a **layered service architecture** built on Node.js with Exp
 9. [Error Handling & Logging](#9-error-handling--logging)
 10. [API Endpoints (Comprehensive Specification)](#10-api-endpoints-comprehensive-specification)
 
-## 1. Core Architecture Principles
+## 1. Architecture Overview
 
-- **Service-oriented design**: Each major feature area is encapsulated in dedicated service classes
-- **Provider abstraction**: Unified interface for different LLM providers (Claude, OpenAI, Google AI, Ollama)
-- **Streaming-first**: Built-in support for real-time streaming responses via Server-Sent Events
-- **Security by design**: End-to-end encryption for API keys, JWT-based authentication, comprehensive input validation
-- **Observability**: Structured logging, health checks, and metrics collection at every layer
+- **Service classes** for each feature area
+- **Unified interface** for LLM providers (Claude, OpenAI, Google AI, Ollama)
+- **SSE streaming** for real-time responses
+- **JWT authentication** with encrypted API keys
+- **Structured logging** with health checks
 
 ## 2. Request Processing Pipeline
 
@@ -185,36 +185,18 @@ interface StreamingResponse {
 }
 ```
 
-## 7. Performance Optimization
-
-### Caching Strategy (Redis-free Initial Implementation)
+## 7. Performance
 
 - **In-Memory Caching**: LRU cache for frequently accessed data
-- **Model Status Caching**: Cache model availability to reduce API calls
-- **Thread Metadata Caching**: Cache thread summaries and metadata
-- **API Response Caching**: Cache non-sensitive API responses
+- **Connection Pooling**: Efficient database connections
+- **HTTP Keep-Alive**: Reuse API connections
 
-### Connection Management
+## 8. Security
 
-- **HTTP Keep-Alive**: Reuse connections to external APIs
-- **Connection Pooling**: Efficient database connection management
-- **Request Batching**: Batch non-critical operations where possible
-
-## 8. Security Implementation
-
-### API Key Management
-
-- **Encryption at Rest**: AES-256-GCM encryption with KMS-managed keys
-- **Secure Transmission**: TLS 1.3 for all external communications
-- **Key Rotation**: Support for API key updates without service interruption
-- **Access Logging**: Audit trail for all API key usage
-
-### Input Validation & Sanitization
-
-- **Schema Validation**: Joi/Zod schemas for all request payloads
-- **Content Filtering**: Sanitize user inputs to prevent injection attacks
-- **File Upload Security**: Validate file types and scan for malicious content
-- **Rate Limiting**: Configurable limits per user and endpoint
+- **API keys**: AES-256-GCM encryption with KMS keys
+- **Input validation**: Zod schemas for all requests
+- **Rate limiting**: Per-user and per-endpoint limits
+- **Content sanitization**: Prevent injection attacks
 
 ## 9. Error Handling & Logging
 
