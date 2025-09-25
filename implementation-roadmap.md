@@ -2,6 +2,25 @@
 
 A comprehensive task breakdown designed for autonomous coding agents with CI/CD-first approach, enabling incremental deployment and verification throughout development.
 
+## Table of Contents
+
+1. [Technical Requirements](#technical-requirements)
+2. [Task Dependencies Overview](#task-dependencies-overview)
+3. [Overview & Execution Strategy](#1-overview--execution-strategy)
+4. [Task Architecture & Dependencies](#2-task-architecture--dependencies)
+5. [Work Phases & Incremental Deployment](#3-work-phases--incremental-deployment)
+6. [Phase 0: CI/CD Foundation & Staging Environment](#phase-0-cicd-foundation--staging-environment)
+7. [Phase 1: Infrastructure Foundation Tasks](#4-phase-1-infrastructure-foundation-tasks)
+8. [Phase 2: Backend Core Development Tasks](#5-phase-2-backend-core-development-tasks)
+9. [Phase 3: Frontend Core Development Tasks](#6-phase-3-frontend-core-development-tasks)
+10. [Phase 4: Advanced Features & Production Readiness](#7-phase-4-advanced-features--production-readiness)
+11. [Critical Path Analysis](#8-critical-path-analysis)
+12. [Resource Requirements](#9-resource-requirements)
+13. [Milestone Gates & Staging Verification](#10-milestone-gates--staging-verification)
+14. [Manual Setup Documentation Requirements](#11-manual-setup-documentation-requirements)
+15. [Implementation Success Metrics](#implementation-success-metrics)
+16. [Implementation Approach Summary](#implementation-approach-summary)
+
 ## Technical Requirements
 
 ### Backend Stack
@@ -111,18 +130,6 @@ FRONT-4 (Model Selection) + FRONT-5 (Chat Interface)
 FRONT-6 (Profile) + FRONT-7 (Health Monitoring)
 ```
 
-## Table of Contents
-
-1. [Overview & Execution Strategy](#1-overview--execution-strategy)
-2. [Work Phases & Incremental Deployment](#2-work-phases--incremental-deployment)
-3. [Phase 0: CI/CD Foundation & Staging Environment](#3-phase-0-cicd-foundation--staging-environment)
-4. [Phase 1: Infrastructure Foundation Tasks](#4-phase-1-infrastructure-foundation-tasks)
-5. [Phase 2: Backend Core Development Tasks](#5-phase-2-backend-core-development-tasks)
-6. [Phase 3: Frontend Core Development Tasks](#6-phase-3-frontend-core-development-tasks)
-7. [Phase 4: Advanced Features & Production Readiness](#7-phase-4-advanced-features--production-readiness)
-8. [Critical Path Analysis](#8-critical-path-analysis)
-9. [Milestone Gates & Staging Verification](#9-milestone-gates--staging-verification)
-10. [Manual Setup Documentation Requirements](#10-manual-setup-documentation-requirements)
 
 ---
 
