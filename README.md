@@ -374,41 +374,18 @@ This section provides comprehensive coverage of Test-Driven Development (TDD) me
 
 ## 11 — CI/CD (GitHub Actions) — Finalized Flow
 
-### Common points
+**See:** [cicd-setup.md](./cicd-setup.md)
 
-- **Trigger**: push to main → create a release tag (default patch bump) and start pipeline OR `workflow_dispatch` to allow manual bump major/minor
-- **Tagging**: `vMAJOR.MINOR.PATCH` created by GH Actions earlier in the workflow
-- **Secrets required** in GitHub Actions:
-  - `GHCR_PAT` or `GITHUB_TOKEN` for GHCR push
-  - `GCP_SA_KEY` or use GitHub Workload Identity / OIDC + service account for Cloud Run deploy
-  - `FIREBASE_TOKEN` for frontend deploy
-  - `SECRET_MANAGER_KEY` details for test and deploy if needed to decrypt test system key
+This section covers the complete CI/CD implementation strategy including GitHub Actions workflow architecture, Docker container strategy with Ollama integration, comprehensive testing integration with Firebase Emulator and Newman/Postman, deployment to Google Cloud Run and Firebase Hosting, secret management with GCP Secret Manager, cross-repository coordination, performance optimization, and security hardening.
 
-### Backend workflow (merge->main)
+### Quick Overview
 
-1. Checkout repo
-2. Bump version (default patch) and create tag `vX.Y.Z` (or accept provided tag)
-3. Install deps, run linter
-4. Run unit tests
-5. Start backend in test mode with in-memory DB (Firebase Emulator Suite)
-6. Run Newman Postman integration tests against started test server
-7. Build Docker image with `--build-arg VERSION=${VERSION}` and label
-8. Push image to GHCR (`ghcr.io/org/backend:${VERSION}`)
-9. Deploy to Cloud Run service referencing GHCR image (gcloud auth with SA or via OIDC)
-10. On success, publish GitHub Release with notes and artifacts as needed
-
-### Frontend workflow (merge->main)
-
-1. Checkout repo
-2. Bump version (independent repo) default patch and create tag
-3. Install deps, lint, run unit tests
-4. Start backend-mock or backend-stub as needed for integration tests if required
-5. Build vite with `VITE_APP_VERSION=${VERSION}` env var
-6. Run any automated UI integration tests against built output (optional)
-7. Deploy to Firebase Hosting using `firebase deploy` with `FIREBASE_TOKEN`
-8. Publish GitHub Release
-
-**Note**: Integration tests should run before build/publish steps to prevent releasing broken code.
+- **Two-Repository Architecture**: Independent CI/CD pipelines for backend and frontend
+- **Backend Pipeline**: Node.js/Express + Ollama container → GHCR → Google Cloud Run
+- **Frontend Pipeline**: React/Vite build → Firebase Hosting deployment
+- **Testing Strategy**: Firebase Emulator, Newman/Postman, Jest/Vitest, contract validation
+- **Security**: OIDC authentication, vulnerability scanning, secret management
+- **Coordination**: Cross-repo integration testing and deployment coordination
 
 ---
 
