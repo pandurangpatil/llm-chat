@@ -128,6 +128,15 @@ The application follows a **three-tier architecture**:
 
 ## 4 — Infrastructure Setup
 
+### Environment Strategy
+
+The application follows a **three-tier environment strategy**:
+- **Development**: Local development with Firebase Emulator Suite
+- **Staging**: Integration testing environment (`stage` branch → staging deployment)
+- **Production**: Live production environment (`main` branch → production deployment)
+
+All environments use the same architectural patterns but with environment-specific configurations for security, performance, and resource allocation.
+
 ### Backend Infrastructure
 
 - **Deployment Platform**: Google Cloud Run (containerized, auto-scaling)
@@ -135,6 +144,22 @@ The application follows a **three-tier architecture**:
 - **Resource Configuration**: CPU and memory sized for concurrent request handling
 - **Scaling**: Auto-scaling with scale-to-zero capability
 - **Inline Processing**: Synchronous title generation using local Ollama and async summarization handled within API request context (no separate workers)
+
+#### Environment-Specific Backend Configuration
+
+**Staging Environment:**
+- **Service Name**: `llm-chat-backend-staging`
+- **Resource Limits**: 2Gi memory, 1 CPU (reduced from production)
+- **Scaling**: 0-3 instances (limited for cost optimization)
+- **Database**: `llm-chat-staging` Firebase project
+- **Domain**: `api-staging.llm-chat.example.com`
+
+**Production Environment:**
+- **Service Name**: `llm-chat-backend`
+- **Resource Limits**: 4Gi memory, 2 CPU (optimized for Ollama)
+- **Scaling**: 0-10 instances (full production scaling)
+- **Database**: `llm-chat-prod` Firebase project
+- **Domain**: `api.llm-chat.example.com`
 
 #### Ollama Runtime (Local Model)
 
@@ -159,6 +184,22 @@ The application follows a **three-tier architecture**:
 - **Build**: Vite-bundled React SPA with optimized production builds
 - **Deployment**: Automated via GitHub Actions on merge to main
 - **Static Assets**: Cached at edge locations for low latency
+
+#### Environment-Specific Frontend Configuration
+
+**Staging Environment:**
+- **Firebase Project**: `llm-chat-staging`
+- **Hosting Site**: `staging.llm-chat.example.com`
+- **Backend URL**: Points to staging backend API
+- **Deployment Trigger**: Push to `stage` branch
+- **Feature Flags**: Staging-specific feature toggles enabled
+
+**Production Environment:**
+- **Firebase Project**: `llm-chat-prod`
+- **Hosting Site**: `llm-chat.example.com`
+- **Backend URL**: Points to production backend API
+- **Deployment Trigger**: Push to `main` branch
+- **Feature Flags**: Production-ready features only
 
 ### Database Infrastructure
 
@@ -293,15 +334,28 @@ Store full model catalog in `models_config` in DB. Example fields relevant to UI
 `/api/health` returns:
 - `service`: `ok|degraded|down`
 - `uptime_seconds`
+- `environment`: `development|staging|production`
 - `db`: `{ ok: true/false, provider: firebase|firebase-emulator, latency_ms }`
 - `ollama`: `{ status: not_loaded|loading|loaded|error, model: gemma-2b, progress?: 0..100 }`
 - `internal_api`: `{ status: ok }`
 
+#### Environment-Specific Health Considerations
+
+**Staging Environment:**
+- Health checks include staging-specific database connectivity
+- Reduced resource limits may affect Ollama model loading performance
+- Health endpoint includes environment identifier for deployment verification
+
+**Production Environment:**
+- Health checks validated against production database and external services
+- Full resource allocation ensures optimal Ollama performance
+- Health monitoring integrated with Cloud Run health checks for auto-scaling
+
 #### Version Display
 
 - Frontend displays both backend version (from `/api/version`) and frontend version (from `VITE_APP_VERSION`) in the topbar
-- Backend version endpoint: `GET /api/version` returns `{ version, build_time, commit }`
-- Version information helps track deployed builds and troubleshoot issues
+- Backend version endpoint: `GET /api/version` returns `{ version, build_time, commit, environment }`
+- Version information helps track deployed builds and troubleshoot issues across environments
 - Health status shown near version with refresh button that calls `/api/health` and updates UI
 
 ### User Management (Admin-only)

@@ -59,15 +59,17 @@ The LLM Chat platform uses a **dual-repository architecture** with distinct CI/C
 ### Workflow Triggers
 
 #### Backend Repository Triggers
-- **Push to main branch**: Automatic deployment pipeline
+- **Push to stage branch**: Automatic staging deployment pipeline
+- **Push to main branch**: Automatic production deployment pipeline
 - **Pull request events**: Validation and testing pipeline
-- **Manual workflow dispatch**: With version bump options (patch, minor, major)
+- **Manual workflow dispatch**: With version bump options (patch, minor, major) and environment selection
 - **Workflow file location**: `.github/workflows/backend-ci-cd.yml`
 
 #### Frontend Repository Triggers
-- **Push to main branch**: Automatic deployment pipeline
+- **Push to stage branch**: Automatic staging deployment pipeline
+- **Push to main branch**: Automatic production deployment pipeline
 - **Pull request events**: Validation and testing pipeline
-- **Manual workflow dispatch**: With version bump options (patch, minor, major)
+- **Manual workflow dispatch**: With version bump options (patch, minor, major) and environment selection
 - **Workflow file location**: `.github/workflows/frontend-ci-cd.yml`
 
 ### Job Orchestration Strategy
@@ -77,15 +79,17 @@ The LLM Chat platform uses a **dual-repository architecture** with distinct CI/C
 2. **integration** - Firebase Emulator + Newman tests
 3. **build** - Docker image with Ollama bundled
 4. **security** - Vulnerability scanning, secret detection
-5. **deploy** - Cloud Run deployment
-6. **release** - GitHub release creation
+5. **deploy-staging** - Cloud Run staging deployment (stage branch)
+6. **deploy-production** - Cloud Run production deployment (main branch)
+7. **release** - GitHub release creation
 
 #### Frontend Pipeline Jobs
 1. **validate** - Linting, type checking, unit tests
 2. **integration** - Backend mock integration tests
 3. **build** - Vite production build
-4. **deploy** - Firebase Hosting deployment
-5. **release** - GitHub release creation
+4. **deploy-staging** - Firebase Hosting staging deployment (stage branch)
+5. **deploy-production** - Firebase Hosting production deployment (main branch)
+6. **release** - GitHub release creation
 
 ---
 
@@ -125,13 +129,24 @@ The LLM Chat platform uses a **dual-repository architecture** with distinct CI/C
 - **Secret detection**: TruffleHog for exposed credentials
 - **Blocking criteria**: High/critical vulnerabilities prevent deployment
 
-#### Stage 5: Cloud Run Deployment
+#### Stage 5a: Cloud Run Staging Deployment
 - **Dependencies**: Requires build and security stages
-- **Conditions**: Only deploys from main branch to production environment
+- **Conditions**: Only deploys from `stage` branch to staging environment
+- **Authentication**: Workload Identity Federation with Google Cloud
+- **Service**: Deploy to `llm-chat-backend-staging` in `us-central1` region
+- **Environment variables**: NODE_ENV=staging, VERSION
+- **Secrets**: JWT_SECRET_STAGING, FIREBASE_ADMIN_KEY_STAGING, SYSTEM_ENCRYPTION_KEY_STAGING from Secret Manager
+- **Resource limits**: 2Gi memory, 1 CPU, 0-3 instances
+- **Health validation**: Post-deployment health and version endpoint checks
+
+#### Stage 5b: Cloud Run Production Deployment
+- **Dependencies**: Requires build and security stages
+- **Conditions**: Only deploys from `main` branch to production environment
 - **Authentication**: Workload Identity Federation with Google Cloud
 - **Service**: Deploy to `llm-chat-backend` in `us-central1` region
-- **Environment variables**: NODE_ENV, VERSION
+- **Environment variables**: NODE_ENV=production, VERSION
 - **Secrets**: JWT_SECRET, FIREBASE_ADMIN_KEY, SYSTEM_ENCRYPTION_KEY from Secret Manager
+- **Resource limits**: 4Gi memory, 2 CPU, 0-10 instances
 - **Health validation**: Post-deployment health and version endpoint checks
 
 ### Backend-Specific Considerations
@@ -175,12 +190,22 @@ The LLM Chat platform uses a **dual-repository architecture** with distinct CI/C
 - **Artifacts**: Upload dist folder for deployment stage
 - **Output**: Version number for subsequent stages
 
-#### Stage 4: Firebase Hosting Deployment
+#### Stage 4a: Firebase Hosting Staging Deployment
 - **Dependencies**: Requires build stage completion
-- **Conditions**: Only deploys from main branch to production environment
+- **Conditions**: Only deploys from `stage` branch to staging environment
 - **Artifact handling**: Download dist folder from build stage
-- **Firebase integration**: Deploy to live channel with service account authentication
+- **Firebase integration**: Deploy to staging site with service account authentication
+- **Required secrets**: GITHUB_TOKEN, FIREBASE_SERVICE_ACCOUNT_STAGING, FIREBASE_PROJECT_ID_STAGING
+- **Environment variables**: VITE_BACKEND_URL points to staging backend
+- **Post-deployment**: Health check validation after 30-second delay
+
+#### Stage 4b: Firebase Hosting Production Deployment
+- **Dependencies**: Requires build stage completion
+- **Conditions**: Only deploys from `main` branch to production environment
+- **Artifact handling**: Download dist folder from build stage
+- **Firebase integration**: Deploy to production site with service account authentication
 - **Required secrets**: GITHUB_TOKEN, FIREBASE_SERVICE_ACCOUNT, FIREBASE_PROJECT_ID
+- **Environment variables**: VITE_BACKEND_URL points to production backend
 - **Post-deployment**: Health check validation after 30-second delay
 
 ### Frontend-Specific Considerations
@@ -277,7 +302,18 @@ The LLM Chat platform uses a **dual-repository architecture** with distinct CI/C
 
 ### Google Cloud Run Configuration
 
-#### Service Configuration
+#### Staging Service Configuration
+- **Service name**: llm-chat-backend-staging
+- **Ingress**: Allow all traffic
+- **CPU configuration**: 1 CPU limit, 0.5 CPU request, no throttling
+- **Memory configuration**: 2Gi limit, 1Gi request (reduced for cost optimization)
+- **Scaling**: 0-3 instances with scale-to-zero capability
+- **Container port**: 3000 for Node.js application
+- **Environment**: Staging NODE_ENV with PORT configuration
+- **Image source**: GHCR with stage-tagged images from CI/CD pipeline
+- **Domain**: Custom staging domain or Cloud Run assigned URL
+
+#### Production Service Configuration
 - **Service name**: llm-chat-backend
 - **Ingress**: Allow all traffic
 - **CPU configuration**: 2 CPU limit, 1 CPU request, no throttling
@@ -286,6 +322,7 @@ The LLM Chat platform uses a **dual-repository architecture** with distinct CI/C
 - **Container port**: 3000 for Node.js application
 - **Environment**: Production NODE_ENV with PORT configuration
 - **Image source**: GHCR with latest tag from CI/CD pipeline
+- **Domain**: Custom production domain
 
 #### Deployment Strategy
 - **Blue-Green Deployment**: Zero-downtime deployments with traffic switching
@@ -295,18 +332,30 @@ The LLM Chat platform uses a **dual-repository architecture** with distinct CI/C
 
 ### Firebase Hosting Configuration
 
-#### Hosting Configuration
+#### Staging Hosting Configuration
+- **Firebase Project**: llm-chat-staging
 - **Public directory**: dist folder from Vite build
-- **Ignored files**: firebase.json, hidden files, node_modules
+- **Hosting site**: staging.llm-chat.example.com or default Firebase domain
+- **SPA routing**: All routes redirect to index.html for client-side routing
+- **Caching headers**: Shorter caching (1 hour) for faster iteration
+- **Environment variables**: VITE_BACKEND_URL points to staging backend
+- **File location**: firebase.staging.json in project root
+
+#### Production Hosting Configuration
+- **Firebase Project**: llm-chat-prod
+- **Public directory**: dist folder from Vite build
+- **Hosting site**: llm-chat.example.com
 - **SPA routing**: All routes redirect to index.html for client-side routing
 - **Caching headers**: Long-term caching (1 year) for JS/CSS assets
+- **Environment variables**: VITE_BACKEND_URL points to production backend
 - **File location**: firebase.json in project root
 
 #### Deployment Features
-- **Preview Channels**: PR-based preview deployments
-- **CDN Distribution**: Global edge caching
+- **Preview Channels**: PR-based preview deployments (production project only)
+- **CDN Distribution**: Global edge caching for both environments
 - **Custom Domain**: HTTPS with automatic certificate management
 - **Analytics Integration**: Firebase Analytics and Performance Monitoring
+- **Environment Separation**: Isolated staging and production deployments
 
 ---
 
@@ -525,11 +574,26 @@ The LLM Chat platform uses a **dual-repository architecture** with distinct CI/C
 ### Deployment Coordination
 
 #### Coordinated Release Process
-1. **Backend Release**: Deploy new API version to staging
-2. **Frontend Validation**: Test frontend against staging backend
-3. **Production Deployment**: Deploy backend to production
-4. **Frontend Deployment**: Deploy frontend to production
-5. **Post-Deployment Validation**: Run integration tests
+1. **Staging Deployment**:
+   - Push to `stage` branch triggers automatic deployment to staging environment
+   - Backend deploys to `llm-chat-backend-staging` Cloud Run service
+   - Frontend deploys to staging Firebase Hosting site
+2. **Staging Validation**:
+   - Run integration tests against staging environment
+   - Manual QA testing and validation
+   - Performance and load testing if required
+3. **Production Promotion**:
+   - Merge `stage` branch to `main` branch after staging validation
+   - Push to `main` branch triggers automatic production deployment
+   - Backend deploys to `llm-chat-backend` Cloud Run service
+   - Frontend deploys to production Firebase Hosting site
+4. **Production Validation**:
+   - Run post-deployment integration tests
+   - Monitor health endpoints and metrics
+   - Rollback capability if issues detected
+5. **Release Documentation**:
+   - Automatic GitHub release creation with changelog
+   - Version tagging for both repositories
 
 ---
 
