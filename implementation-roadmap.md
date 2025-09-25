@@ -1,21 +1,22 @@
 # LLM Chat Platform - Implementation Roadmap
 
-A comprehensive task breakdown designed for autonomous coding agents with clear dependencies and parallel execution opportunities.
+A comprehensive task breakdown designed for autonomous coding agents with CI/CD-first approach, enabling incremental deployment and verification throughout development.
 
 ## Table of Contents
 
 1. [Overview & Execution Strategy](#1-overview--execution-strategy)
 2. [Task Architecture & Dependencies](#2-task-architecture--dependencies)
-3. [Work Streams & Parallel Execution](#3-work-streams--parallel-execution)
-4. [Infrastructure Foundation Tasks](#4-infrastructure-foundation-tasks)
-5. [Backend Core Development Tasks](#5-backend-core-development-tasks)
-6. [Frontend Core Development Tasks](#6-frontend-core-development-tasks)
-7. [Integration & Testing Tasks](#7-integration--testing-tasks)
-8. [Deployment & Operations Tasks](#8-deployment--operations-tasks)
+3. [Work Phases & Incremental Deployment](#3-work-phases--incremental-deployment)
+4. [Phase 0: CI/CD Foundation & Staging Environment](#4-phase-0-cicd-foundation--staging-environment)
+5. [Phase 1: Infrastructure Foundation Tasks](#5-phase-1-infrastructure-foundation-tasks)
+6. [Phase 2: Backend Core Development Tasks](#6-phase-2-backend-core-development-tasks)
+7. [Phase 3: Frontend Core Development Tasks](#7-phase-3-frontend-core-development-tasks)
+8. [Phase 4: Advanced Features & Production Readiness](#8-phase-4-advanced-features--production-readiness)
 9. [Task Dependencies Matrix](#9-task-dependencies-matrix)
 10. [Critical Path Analysis](#10-critical-path-analysis)
 11. [Resource Requirements](#11-resource-requirements)
-12. [Milestone Gates & Acceptance Criteria](#12-milestone-gates--acceptance-criteria)
+12. [Milestone Gates & Staging Verification](#12-milestone-gates--staging-verification)
+13. [Manual Setup Documentation Requirements](#13-manual-setup-documentation-requirements)
 
 ---
 
@@ -25,21 +26,25 @@ A comprehensive task breakdown designed for autonomous coding agents with clear 
 - **Two-Repository Strategy**: Independent backend (Node.js/Express) and frontend (React/Vite) repositories
 - **Container-First Backend**: Single container with Node.js API server and Ollama process
 - **Firebase Integration**: Realtime Database for production, Emulator Suite for development/testing
+- **CI/CD-First Approach**: Deployment pipeline established before any feature development
+- **Incremental Staging Deployment**: Each milestone deployed to staging for verification
 - **TDD Methodology**: All tasks require failing tests written first, then implementation
 - **Contract-First API**: API specifications defined before implementation
 
 ### Task Design Philosophy
-- **Atomic Tasks**: Each task is self-contained and can be completed in 2-4 hours
+- **Atomic Tasks**: Each task is self-contained with clear completion criteria
 - **Self-Sufficient Prompts**: Each task prompt contains all necessary context and specifications
-- **Clear Acceptance Criteria**: Every task has measurable completion criteria
+- **Deployment-Ready**: Every task produces code that can be deployed to staging
+- **Documentation-First**: All manual setup steps documented for reproducibility
+- **Verification-Driven**: Each milestone includes staging environment verification
 - **Parallel Execution**: Tasks designed to minimize blocking dependencies
-- **Testable Units**: All tasks produce testable, verifiable outputs
 
 ### Execution Model
-- Tasks can be executed by autonomous coding agents (like Claude Code)
-- Each task prompt includes complete technical specifications
-- Dependency verification built into task prompts
-- Automated testing and validation at each step
+- **Phase 0 Priority**: CI/CD and staging environment must be operational first
+- **Incremental Development**: Features deployed to staging immediately upon completion
+- **Continuous Verification**: Coding agents verify functionality through deployed staging environment
+- **Manual Step Documentation**: All manual setup procedures documented in task outputs
+- **Milestone Gates**: Each phase completion verified through staging environment testing
 
 ---
 
@@ -54,58 +59,166 @@ A comprehensive task breakdown designed for autonomous coding agents with clear 
 ### Repository Organization
 ```
 Backend Repository (llm-chat-backend):
-├── Foundation Layer (Parallel)
-├── Core Services Layer (Sequential within, Parallel across)
-├── Integration Layer (Depends on Core Services)
-└── Deployment Layer (Depends on Integration)
+├── CI/CD Layer (Phase 0 - First Priority)
+├── Foundation Layer (Phase 1 - With staging deployment)
+├── Core Services Layer (Phase 2 - Incremental deployment)
+└── Advanced Features Layer (Phase 3 - Production readiness)
 
 Frontend Repository (llm-chat-frontend):
-├── Foundation Layer (Parallel with Backend Foundation)
-├── Core Components Layer (Parallel within, Sequential dependency on Foundation)
-├── Integration Layer (Depends on Backend API contracts)
-└── Deployment Layer (Parallel with Backend Deployment)
+├── CI/CD Layer (Phase 0 - Parallel with backend)
+├── Foundation Layer (Phase 1 - With staging deployment)
+├── Core Components Layer (Phase 2 - Incremental deployment)
+└── Advanced Features Layer (Phase 3 - Production readiness)
+
+Staging Environment:
+├── Immediate deployment after each phase
+├── Continuous verification of functionality
+├── Manual testing and validation
+└── Documentation of deployment procedures
 ```
 
 ---
 
-## 3. Work Streams & Parallel Execution
+## 3. Work Phases & Incremental Deployment
 
-### Stream A: Backend Foundation & Infrastructure
-**Duration**: ~16 hours (4 parallel tasks × 4 hours each)
-**Parallel Execution**: All tasks can run simultaneously
+### Phase 0: CI/CD Foundation & Staging Environment
+**Priority**: Highest - Must complete before any other work
+**Deployment**: Basic staging environment with health checks
+**Verification**: Manual verification of CI/CD pipeline functionality
 
-### Stream B: Frontend Foundation & Infrastructure
-**Duration**: ~16 hours (4 parallel tasks × 4 hours each)
-**Parallel Execution**: All tasks can run simultaneously, independent of Stream A
+### Phase 1: Infrastructure Foundation
+**Deployment**: Basic backend + frontend with authentication to staging
+**Verification**: Login flow works on staging environment
+**Parallel Execution**: Backend and frontend foundation tasks can run in parallel
 
-### Stream C: Backend Core Services
-**Duration**: ~24 hours (Sequential execution required)
-**Dependencies**: Requires Stream A completion
+### Phase 2: Core Features Development
+**Deployment**: Thread management + basic chat to staging after each task
+**Verification**: Complete user journey testable on staging
+**Dependencies**: Requires Phase 1 completion and staging verification
 
-### Stream D: Frontend Core Components
-**Duration**: ~20 hours (Mostly parallel within sub-streams)
-**Dependencies**: Requires Stream B completion, some tasks depend on Stream C API contracts
-
-### Stream E: Integration & Testing
-**Duration**: ~12 hours (Sequential execution)
-**Dependencies**: Requires both Stream C and Stream D partial completion
-
-### Stream F: Deployment & Operations
-**Duration**: ~8 hours (Parallel execution possible)
-**Dependencies**: Requires all previous streams completion
+### Phase 3: Advanced Features & Production Readiness
+**Deployment**: Full feature set to staging, then production deployment
+**Verification**: Complete system testing on staging before production
+**Dependencies**: Requires Phase 2 completion and staging verification
 
 ---
 
-## 4. Infrastructure Foundation Tasks
+## 4. Phase 0: CI/CD Foundation & Staging Environment
 
-### Stream A: Backend Foundation (Parallel Execution)
+### Task X1: Backend Repository with CI/CD Pipeline
+**Dependencies**: None - First task to execute
+**Parallel**: Can run with X2
+
+**Objective**: Create backend repository with immediate CI/CD deployment capability
+
+**Deliverables**:
+- Repository structure (`src/`, `tests/`, `scripts/`, `docs/`)
+- GitHub Actions workflow for automated deployment
+- Docker containerization with health check endpoint
+- Firebase project setup and configuration
+- Cloud Run deployment configuration
+- Environment variable management (staging/production)
+- Basic health check endpoint (`GET /api/health`)
+- Staging environment deployment
+
+**Manual Setup Documentation**:
+- Document GCP project creation and configuration steps
+- Firebase project setup and service account creation
+- GitHub secrets configuration for CI/CD
+- Cloud Run service setup and permissions
+- Environment variables and secrets management
+- Domain setup and SSL configuration (if applicable)
+
+**Staging Verification Steps**:
+- Health check endpoint accessible via staging URL
+- CI/CD pipeline deploys successfully on code push
+- Environment variables properly configured
+- Logs visible in GCP Console
+
+**Acceptance Criteria**:
+- Repository automatically deploys to staging on push to main
+- Health endpoint returns 200 with service status
+- Manual setup documentation complete with checklists
+- Staging environment accessible and functional
+
+### Task X2: Frontend Repository with CI/CD Pipeline
+**Dependencies**: None - Can run parallel with X1
+**Parallel**: Can run with X1
+
+**Objective**: Create frontend repository with immediate Firebase Hosting deployment
+
+**Deliverables**:
+- Repository structure with Vite + React + TypeScript
+- GitHub Actions workflow for Firebase Hosting deployment
+- Environment configuration for staging and production
+- Basic routing and version display
+- Firebase Hosting configuration for multiple environments
+- Staging environment deployment
+
+**Manual Setup Documentation**:
+- Document Firebase project setup for hosting
+- GitHub secrets configuration for deployment
+- Custom domain configuration (if applicable)
+- Environment variable setup for different stages
+- Firebase CLI setup and authentication
+
+**Staging Verification Steps**:
+- Frontend accessible via staging Firebase Hosting URL
+- Version information displays correctly
+- CI/CD pipeline deploys on code push
+- Environment-specific configurations working
+
+**Acceptance Criteria**:
+- Frontend automatically deploys to Firebase Hosting staging on push
+- Application loads successfully with version information
+- Manual setup documentation complete with checklists
+- Staging environment accessible and responsive
+
+### Task X3: Infrastructure as Code & Environment Configuration
+**Dependencies**: Tasks X1, X2 completed
+
+**Objective**: Define all infrastructure and deployment configurations as code
+
+**Deliverables**:
+- Cloud Run service configurations (staging/production)
+- Firebase project and hosting configurations
+- Secret management setup (GCP Secret Manager)
+- Monitoring and alerting basic setup
+- Backup and recovery basic procedures
+- Environment variable templates and documentation
+
+**Manual Setup Documentation**:
+- Document infrastructure setup procedures
+- Secret management configuration steps
+- Monitoring dashboard setup
+- Backup and recovery procedures
+- Environment promotion processes
+- Troubleshooting common deployment issues
+
+**Staging Verification Steps**:
+- All infrastructure properly configured via code
+- Secrets managed securely and accessible to services
+- Basic monitoring functional and accessible
+- Environment promotion process documented and tested
+
+**Acceptance Criteria**:
+- All infrastructure defined as code and version-controlled
+- Secrets managed securely with proper access controls
+- Basic monitoring provides system visibility
+- Complete documentation with manual setup checklists
+
+---
+
+## 5. Phase 1: Infrastructure Foundation Tasks
+
+### Backend Foundation (Parallel Execution with Staging Deployment)
 
 #### Task A1: Backend Repository Scaffolding & Development Environment
-**Duration**: 4 hours
-**Dependencies**: None
+**Dependencies**: Task X1 (CI/CD pipeline) completed
 **Parallel**: Can run with A2, A3, A4
+**Staging Deployment**: Deploy basic backend with health check after completion
 
-**Objective**: Create complete backend repository structure with development tools
+**Objective**: Create complete backend repository structure with development tools and immediate staging deployment
 
 **Deliverables**:
 - Repository structure (`src/`, `tests/`, `migrations/`, `scripts/`, `docs/`)
@@ -118,23 +231,38 @@ Frontend Repository (llm-chat-frontend):
 - Basic health check endpoint (`GET /api/health`)
 - README with setup instructions
 
+**Manual Setup Documentation**:
+- Document local development environment setup
+- Docker and Docker Compose installation requirements
+- Environment variable configuration procedures
+- Database emulator setup instructions
+- Troubleshooting common development issues
+
+**Staging Deployment**:
+- Deploy basic backend to staging environment
+- Verify health check endpoint accessibility
+- Test environment variable loading
+- Validate CI/CD pipeline integration
+
 **Testing Requirements**:
 - Unit test for health endpoint
 - Integration test for development environment startup
 - Linting and type-checking in CI
+- Staging environment health check test
 
 **Acceptance Criteria**:
 - `npm run start:test` starts server with in-memory database
 - `docker-compose up` provides full development environment
-- Health endpoint returns 200 with service status
-- All tests pass, linting clean, TypeScript compiles without errors
+- Health endpoint accessible on staging environment
+- All tests pass including staging verification
+- Manual setup documentation complete with checklists
 
 #### Task A2: Database Abstraction Layer & Firebase Integration
-**Duration**: 4 hours
-**Dependencies**: None
+**Dependencies**: Task X1 (CI/CD pipeline) completed
 **Parallel**: Can run with A1, A3, A4
+**Staging Deployment**: Deploy database integration to staging after completion
 
-**Objective**: Create database abstraction layer supporting both Firebase Realtime Database and Firebase Emulator
+**Objective**: Create database abstraction layer supporting both Firebase Realtime Database and Firebase Emulator with staging verification
 
 **Deliverables**:
 - Database interface definitions (TypeScript interfaces)
@@ -145,24 +273,39 @@ Frontend Repository (llm-chat-frontend):
 - Migration system framework
 - Seed data system for testing
 
+**Manual Setup Documentation**:
+- Document Firebase project database setup procedures
+- Firebase Emulator Suite installation and configuration
+- Database rules configuration for staging/production
+- Service account setup and permissions
+- Seed data deployment procedures
+
+**Staging Deployment**:
+- Deploy database integration to staging environment
+- Verify Firebase connection and data operations
+- Test database health check endpoint
+- Validate seed data deployment
+
 **Testing Requirements**:
 - Unit tests for database adapter methods
 - Integration tests with Firebase Emulator
 - Connection failure and recovery tests
 - Data integrity validation tests
+- Staging environment database connectivity tests
 
 **Acceptance Criteria**:
-- Database adapter connects to both production Firebase and local emulator
-- Migration system can create and manage schema versions
-- Seed data populates test databases consistently
-- Health check accurately reports database status
+- Database adapter connects to both staging Firebase and local emulator
+- Migration system creates and manages schema versions on staging
+- Seed data populates staging database consistently
+- Health check accurately reports staging database status
+- Manual setup documentation complete with verification steps
 
 #### Task A3: Authentication & Security Infrastructure
-**Duration**: 4 hours
-**Dependencies**: None
+**Dependencies**: Task X1 (CI/CD pipeline) completed
 **Parallel**: Can run with A1, A2, A4
+**Staging Deployment**: Deploy security infrastructure to staging after completion
 
-**Objective**: Implement JWT-based authentication with security middleware
+**Objective**: Implement JWT-based authentication with security middleware and staging verification
 
 **Deliverables**:
 - JWT token generation and validation utilities
@@ -173,25 +316,39 @@ Frontend Repository (llm-chat-frontend):
 - Session management with httpOnly cookies
 - Security configuration and validation
 
+**Manual Setup Documentation**:
+- Document GCP KMS setup for API key encryption
+- JWT secret configuration procedures
+- Security headers configuration guide
+- Rate limiting configuration and tuning
+- CORS policy setup for staging/production domains
+
+**Staging Deployment**:
+- Deploy authentication infrastructure to staging
+- Verify JWT token generation and validation
+- Test security middleware functionality
+- Validate API key encryption/decryption
+
 **Testing Requirements**:
 - Unit tests for JWT utilities and encryption functions
 - Integration tests for authentication flows
 - Security middleware behavior tests
 - Rate limiting and attack simulation tests
+- Staging environment security validation tests
 
 **Acceptance Criteria**:
-- JWT tokens generated and validated correctly
-- API keys encrypted/decrypted securely
-- Authentication middleware properly protects routes
-- Security headers and rate limiting active
-- Password hashing follows security best practices
+- JWT tokens generated and validated correctly on staging
+- API keys encrypted/decrypted securely on staging
+- Authentication middleware properly protects staging routes
+- Security headers and rate limiting active on staging
+- Manual setup documentation complete with security checklists
 
 #### Task A4: Logging, Monitoring & Error Handling Infrastructure
-**Duration**: 4 hours
-**Dependencies**: None
+**Dependencies**: Task X1 (CI/CD pipeline) completed
 **Parallel**: Can run with A1, A2, A3
+**Staging Deployment**: Deploy monitoring infrastructure to staging after completion
 
-**Objective**: Implement comprehensive logging, monitoring, and error handling
+**Objective**: Implement comprehensive logging, monitoring, and error handling with staging verification
 
 **Deliverables**:
 - Structured logging system with winston or similar
@@ -202,28 +359,43 @@ Frontend Repository (llm-chat-frontend):
 - Environment-specific logging configurations
 - Error tracking and reporting system integration
 
+**Manual Setup Documentation**:
+- Document logging configuration for different environments
+- Error tracking service setup (e.g., Sentry configuration)
+- Monitoring dashboard creation procedures
+- Log aggregation and analysis setup
+- Alert configuration and notification setup
+
+**Staging Deployment**:
+- Deploy logging and monitoring to staging environment
+- Verify log output format and correlation IDs
+- Test error handling and reporting
+- Validate health check system functionality
+
 **Testing Requirements**:
 - Unit tests for logging utilities and error handlers
 - Integration tests for monitoring endpoints
 - Error scenario simulation and validation
 - Log format and correlation ID validation
+- Staging environment monitoring verification tests
 
 **Acceptance Criteria**:
-- All errors properly categorized and logged with context
-- Health check endpoint reports comprehensive system status
-- Request correlation IDs tracked through entire request lifecycle
-- Monitoring provides actionable insights into system performance
+- All errors properly categorized and logged with context on staging
+- Health check endpoint reports comprehensive system status on staging
+- Request correlation IDs tracked through entire request lifecycle on staging
+- Monitoring provides actionable insights into staging system performance
+- Manual setup documentation complete with monitoring checklists
 
 ---
 
-### Stream B: Frontend Foundation (Parallel Execution)
+### Frontend Foundation (Parallel Execution with Staging Deployment)
 
 #### Task B1: Frontend Repository Scaffolding & Build System
-**Duration**: 4 hours
-**Dependencies**: None
-**Parallel**: Can run with B2, B3, B4 and all Stream A tasks
+**Dependencies**: Task X2 (Frontend CI/CD pipeline) completed
+**Parallel**: Can run with B2, B3, B4 and all Backend Foundation tasks
+**Staging Deployment**: Deploy basic frontend to Firebase Hosting staging after completion
 
-**Objective**: Create complete frontend repository with modern React development setup
+**Objective**: Create complete frontend repository with modern React development setup and immediate staging deployment
 
 **Deliverables**:
 - Repository structure (`src/`, `tests/`, `public/`, `docs/`)
@@ -236,25 +408,39 @@ Frontend Repository (llm-chat-frontend):
 - Basic routing setup with React Router
 - Version display component reading from build-time environment
 
+**Manual Setup Documentation**:
+- Document local development environment setup
+- Node.js version requirements and installation
+- Environment variable configuration procedures
+- Firebase Hosting deployment procedures
+- Custom domain configuration (if applicable)
+
+**Staging Deployment**:
+- Deploy frontend to Firebase Hosting staging
+- Verify application loads with correct version information
+- Test routing functionality on staging
+- Validate environment-specific configurations
+
 **Testing Requirements**:
 - Unit tests for core utilities and components
 - Build process validation tests
 - Environment configuration tests
 - Basic routing functionality tests
+- Staging deployment verification tests
 
 **Acceptance Criteria**:
 - `npm run dev` starts development server with hot reload
 - `npm run build` creates optimized production build
-- `npm run test` runs all tests successfully
-- TypeScript compilation and linting pass
-- Version information displayed in UI
+- Frontend accessible on Firebase Hosting staging URL
+- Version information displayed correctly on staging
+- Manual setup documentation complete with deployment checklists
 
 #### Task B2: State Management & Data Layer Architecture
-**Duration**: 4 hours
-**Dependencies**: None
-**Parallel**: Can run with B1, B3, B4 and all Stream A tasks
+**Dependencies**: Task X2 (Frontend CI/CD pipeline) completed
+**Parallel**: Can run with B1, B3, B4 and all Backend Foundation tasks
+**Staging Deployment**: Deploy state management integration to staging after completion
 
-**Objective**: Implement client-side state management and API client architecture
+**Objective**: Implement client-side state management and API client architecture with staging verification
 
 **Deliverables**:
 - Zustand stores for different application domains
@@ -265,24 +451,39 @@ Frontend Repository (llm-chat-frontend):
 - State persistence for offline support
 - Type-safe API client with generated types
 
+**Manual Setup Documentation**:
+- Document state management architecture and patterns
+- API client configuration procedures
+- Environment-specific API endpoint configuration
+- Local storage and persistence configuration
+- Error handling and retry strategy documentation
+
+**Staging Deployment**:
+- Deploy state management to staging environment
+- Verify API client connectivity to staging backend
+- Test state persistence across browser sessions
+- Validate error handling and retry mechanisms
+
 **Testing Requirements**:
 - Unit tests for all store actions and selectors
 - API client integration tests with mock server
 - State persistence and rehydration tests
 - Error handling and retry logic tests
+- Staging environment API connectivity tests
 
 **Acceptance Criteria**:
-- State management handles all application use cases
-- API client properly handles authentication and errors
-- Client-side caching improves performance
-- State persists across browser sessions when appropriate
+- State management handles all application use cases on staging
+- API client properly connects to staging backend with auth and error handling
+- Client-side caching improves performance on staging
+- State persists across browser sessions on staging environment
+- Manual setup documentation complete with configuration checklists
 
 #### Task B3: Design System & Component Library
-**Duration**: 4 hours
-**Dependencies**: None
-**Parallel**: Can run with B1, B2, B4 and all Stream A tasks
+**Dependencies**: Task X2 (Frontend CI/CD pipeline) completed
+**Parallel**: Can run with B1, B2, B4 and all Backend Foundation tasks
+**Staging Deployment**: Deploy design system to staging after completion
 
-**Objective**: Create comprehensive design system and reusable component library
+**Objective**: Create comprehensive design system and reusable component library with staging verification
 
 **Deliverables**:
 - Material-UI theme customization
@@ -293,24 +494,39 @@ Frontend Repository (llm-chat-frontend):
 - Color palette and semantic color tokens
 - Component documentation with Storybook or similar
 
+**Manual Setup Documentation**:
+- Document design system setup and customization
+- Component library usage guidelines
+- Theme customization procedures
+- Asset management and optimization procedures
+- Accessibility testing setup and procedures
+
+**Staging Deployment**:
+- Deploy design system to staging environment
+- Verify components render correctly across devices
+- Test responsive design on staging
+- Validate accessibility features on staging
+
 **Testing Requirements**:
 - Visual regression tests for all components
 - Accessibility tests (ARIA, keyboard navigation)
 - Responsive behavior tests across breakpoints
 - Component API contract tests
+- Staging environment visual and accessibility tests
 
 **Acceptance Criteria**:
-- All components follow consistent design patterns
-- Components are accessible and meet WCAG guidelines
-- Responsive design works across all target devices
-- Component library is well-documented and reusable
+- All components follow consistent design patterns on staging
+- Components are accessible and meet WCAG guidelines on staging
+- Responsive design works across all target devices on staging
+- Component library well-documented with staging examples
+- Manual setup documentation complete with design system guidelines
 
 #### Task B4: Frontend Security & Performance Infrastructure
-**Duration**: 4 hours
-**Dependencies**: None
-**Parallel**: Can run with B1, B2, B3 and all Stream A tasks
+**Dependencies**: Task X2 (Frontend CI/CD pipeline) completed
+**Parallel**: Can run with B1, B2, B3 and all Backend Foundation tasks
+**Staging Deployment**: Deploy security and performance optimizations to staging after completion
 
-**Objective**: Implement frontend security measures and performance optimizations
+**Objective**: Implement frontend security measures and performance optimizations with staging verification
 
 **Deliverables**:
 - Content Security Policy configuration
@@ -321,30 +537,46 @@ Frontend Repository (llm-chat-frontend):
 - Performance monitoring integration
 - Service worker for caching (optional)
 
+**Manual Setup Documentation**:
+- Document Content Security Policy configuration
+- Security headers setup procedures
+- Performance monitoring configuration
+- Asset optimization pipeline setup
+- Bundle analysis and optimization procedures
+
+**Staging Deployment**:
+- Deploy security and performance features to staging
+- Verify security headers and CSP functionality
+- Test performance optimizations on staging
+- Validate bundle size and loading performance
+
 **Testing Requirements**:
 - Security vulnerability scanning tests
 - Performance benchmarking and regression tests
 - Bundle analysis and optimization validation
 - Service worker functionality tests (if implemented)
+- Staging environment security and performance validation
 
 **Acceptance Criteria**:
-- Security headers and CSP properly configured
-- No security vulnerabilities in dependencies
-- Application loads within performance budgets
-- Code splitting reduces initial bundle size
-- Assets are optimized for production delivery
+- Security headers and CSP properly configured on staging
+- No security vulnerabilities in dependencies verified on staging
+- Application loads within performance budgets on staging
+- Code splitting reduces initial bundle size on staging
+- Manual setup documentation complete with security and performance checklists
 
 ---
 
-## 5. Backend Core Development Tasks
+## 6. Phase 2: Backend Core Development Tasks
 
-### Stream C: Backend Core Services (Sequential Dependencies)
+### Backend Core Services (Sequential Dependencies with Incremental Staging Deployment)
+
+**Phase 2 Milestone**: Deploy functional chat platform to staging with authentication, thread management, and basic AI model integration after each core task completion.
 
 #### Task C1: User Management & Authentication API
-**Duration**: 4 hours
-**Dependencies**: Tasks A1, A2, A3 completed
+**Dependencies**: Tasks A1, A2, A3 completed and deployed to staging
+**Staging Deployment**: Deploy authentication system to staging immediately after completion
 
-**Objective**: Implement complete user authentication system with admin user management
+**Objective**: Implement complete user authentication system with admin user management and immediate staging verification
 
 **Deliverables**:
 - User CRUD operations in database layer
@@ -363,17 +595,32 @@ Frontend Repository (llm-chat-frontend):
 - `PUT /api/user/profile` - Update user profile
 - `PUT /api/user/api-keys` - Update encrypted API keys
 
+**Manual Setup Documentation**:
+- Document user creation procedures for staging/production
+- Admin CLI utility usage instructions
+- Cloud Function deployment and configuration
+- API key management procedures
+- Authentication troubleshooting guide
+
+**Staging Deployment**:
+- Deploy authentication system to staging environment
+- Create test users using admin CLI
+- Verify all authentication endpoints on staging
+- Test API key encryption/decryption on staging
+
 **Testing Requirements**:
 - Unit tests for all authentication functions
 - Integration tests for complete auth flows
 - Security tests for token handling and encryption
 - Admin CLI utility tests
+- Staging environment authentication flow tests
 
 **Acceptance Criteria**:
-- User can log in and receive valid JWT tokens
-- Admin can create users via CLI and Cloud Function
-- API keys are stored encrypted and can be retrieved securely
-- All authentication security requirements met
+- Users can log in and receive valid JWT tokens on staging
+- Admin CLI successfully creates users on staging
+- API keys stored encrypted and retrieved securely on staging
+- All authentication security requirements met on staging
+- Manual setup documentation complete with user management checklists
 
 #### Task C2: Thread Management & CRUD Operations
 **Duration**: 4 hours
@@ -575,9 +822,11 @@ Frontend Repository (llm-chat-frontend):
 
 ---
 
-## 6. Frontend Core Development Tasks
+## 7. Phase 3: Frontend Core Development Tasks
 
-### Stream D: Frontend Core Components (Mixed Dependencies)
+### Frontend Core Components (Mixed Dependencies with Staging Deployment)
+
+**Phase 3 Milestone**: Deploy complete user-facing chat interface to staging with full functionality after each component completion.
 
 #### Task D1: Authentication & Login System
 **Duration**: 3 hours
@@ -814,9 +1063,11 @@ Frontend Repository (llm-chat-frontend):
 
 ---
 
-## 7. Integration & Testing Tasks
+## 8. Phase 4: Advanced Features & Production Readiness
 
-### Stream E: Integration & Testing (Sequential Dependencies)
+### Integration, Testing & Production Deployment (Sequential Dependencies)
+
+**Phase 4 Milestone**: Deploy fully tested and production-ready system with comprehensive monitoring and operational procedures.
 
 #### Task E1: API Contract Validation & Integration Testing
 **Duration**: 3 hours
@@ -930,9 +1181,7 @@ Frontend Repository (llm-chat-frontend):
 
 ---
 
-## 8. Deployment & Operations Tasks
-
-### Stream F: Deployment & Operations (Parallel Execution Possible)
+### Advanced Features & Production Operations (Integrated into Phase 4)
 
 #### Task F1: Backend CI/CD Pipeline & Docker Containerization
 **Duration**: 4 hours
@@ -1115,18 +1364,26 @@ graph TD
 
 ## 10. Critical Path Analysis
 
-### Critical Path Duration: ~52 hours
-**Path**: A1 → C1 → C2 → C3 → C5 → C7 → E1 → E2 → E3 → E4 → F4
+### Critical Path (Revised for CI/CD-First Approach):
+**Path**: X1 → X2 → X3 → A1-A4 → C1 → C2 → C3 → C5 → D1 → D2 → D5 → Production Deployment
+
+### Key Changes from Original Plan:
+1. **Phase 0 Priority**: CI/CD infrastructure must be completed before any development work
+2. **Staging-First Deployment**: Each milestone immediately deployed to staging for verification
+3. **Incremental Development**: Features deployed as soon as they're completed and tested
+4. **Continuous Verification**: Manual and automated testing performed on staging after each deployment
 
 ### Optimization Opportunities:
-1. **Early API Contract Definition**: Define API contracts after Task C1 to unblock frontend development
-2. **Parallel Testing**: Some integration testing can begin before all features are complete
-3. **Incremental Deployment**: Deploy components as they're completed rather than waiting for full completion
+1. **Immediate Verification**: Staging deployment enables immediate functionality testing
+2. **Parallel Development**: Backend and frontend foundation tasks can run in parallel after Phase 0
+3. **Early Integration**: API contracts tested on staging environment as soon as backend is deployed
+4. **Risk Reduction**: Issues identified early through continuous staging deployment
 
 ### Risk Mitigation:
-- **Ollama Integration Risk**: Task C6 is not on critical path, providing buffer time
-- **Frontend-Backend Coupling**: API contracts defined early to minimize integration delays
-- **Testing Dependencies**: Integration tests can use mocked components to start earlier
+- **CI/CD First**: Deployment issues identified and resolved before feature development
+- **Staging Verification**: All functionality verified in deployed environment before production
+- **Incremental Approach**: Smaller deployments reduce risk of integration failures
+- **Documentation Requirements**: Manual setup procedures documented to ensure reproducibility
 
 ---
 
@@ -1153,73 +1410,139 @@ graph TD
 
 ---
 
-## 12. Milestone Gates & Acceptance Criteria
+## 12. Milestone Gates & Staging Verification
 
-### Milestone 1: Foundation Complete (After Tasks A1-A4, B1-B4)
-**Acceptance Criteria**:
-- Both repositories set up with complete development environments
-- Local development servers running successfully
-- Basic health checks and infrastructure working
-- All foundation tests passing
-
-**Gate Requirements**:
-- Successful `npm run start:test` for both repositories
-- Docker development environment functional
-- CI pipelines running basic validation
-
-### Milestone 2: Core Backend Complete (After Tasks C1-C7)
-**Acceptance Criteria**:
-- All API endpoints implemented and tested
-- Authentication and authorization working
-- Database operations functional with proper error handling
-- AI model integration working with at least one provider
-- Comprehensive API documentation available
+### Milestone 0: CI/CD & Staging Environment Operational (After Tasks X1, X2, X3)
+**Staging Verification**:
+- Backend health check accessible via staging URL
+- Frontend loading on Firebase Hosting staging URL
+- CI/CD pipeline deploying automatically on code push
+- Infrastructure properly configured and documented
 
 **Gate Requirements**:
-- All backend integration tests passing
-- API endpoints respond correctly to valid requests
-- Error handling working for all edge cases
-- Performance meets minimum requirements
+- Manual verification of staging URLs accessibility
+- CI/CD pipeline execution successful
+- Complete manual setup documentation created
+- Infrastructure defined as code and version controlled
 
-### Milestone 3: Core Frontend Complete (After Tasks D1-D7)
-**Acceptance Criteria**:
-- All major UI components implemented
-- User authentication flow working end-to-end
-- Chat interface functional with real-time streaming
-- Responsive design working across devices
-- Accessibility requirements met
-
-**Gate Requirements**:
-- All frontend unit tests passing
-- UI components render correctly across browsers
-- User workflows functional in development environment
-- Performance budgets met
-
-### Milestone 4: Integration Complete (After Tasks E1-E4)
-**Acceptance Criteria**:
-- End-to-end user journeys working
-- All API contracts validated
-- Performance requirements met under load
-- Security validation completed with no critical issues
+### Milestone 1: Foundation with Basic Authentication on Staging (After Tasks A1-A4, B1-B4, C1)
+**Staging Verification**:
+- User can access login page on staging frontend
+- Backend authentication endpoints responding on staging
+- User can log in successfully on staging environment
+- Database connectivity working on staging
+- Monitoring and logging functional on staging
 
 **Gate Requirements**:
-- E2E tests passing consistently
-- Load testing demonstrates system can handle target capacity
-- Security scan shows no high or critical vulnerabilities
-- Integration between all components working
+- End-to-end login flow working on staging
+- Health checks reporting system status on staging
+- Manual testing checklist completed and documented
+- All tests passing in CI/CD pipeline
 
-### Milestone 5: Production Ready (After Tasks F1-F4)
-**Acceptance Criteria**:
-- CI/CD pipelines fully functional
-- Production deployments automated and reliable
-- Monitoring and alerting operational
-- All operational procedures documented and tested
+### Milestone 2: Core Chat Functionality on Staging (After Tasks C2, C3, C4, C5, D1-D5)
+**Staging Verification**:
+- User can create threads on staging
+- User can send messages and receive AI responses on staging
+- Thread management (CRUD operations) working on staging
+- Model selection and configuration functional on staging
+- Real-time chat streaming working on staging
 
 **Gate Requirements**:
-- Successful deployment to production environment
-- Monitoring dashboard showing healthy system status
-- All operational procedures tested and documented
+- Complete user journey from login to chat working on staging
+- All core API endpoints responding correctly on staging
+- Frontend components rendering properly on staging
+- Manual testing of all major user workflows completed
+
+### Milestone 3: Full Feature Set on Staging (After Tasks C6, C7, D6, D7, E1, E2)
+**Staging Verification**:
+- Ollama models loading and working on staging
+- Automatic summarization functional on staging
+- User profile and settings management working on staging
+- System health monitoring visible in UI on staging
+- Performance acceptable under normal load on staging
+
+**Gate Requirements**:
+- All features accessible and functional on staging
+- End-to-end testing completed on staging environment
+- Performance requirements met on staging
+- Security testing completed with no critical issues
+
+### Milestone 4: Production Deployment Ready (After Tasks E3, E4)
+**Staging Verification**:
+- Load testing completed successfully on staging
+- Security validation passed on staging
+- All operational procedures tested on staging
 - Backup and recovery procedures validated
+
+**Gate Requirements**:
+- Production deployment successful
+- Monitoring and alerting operational in production
+- All operational procedures documented and tested
+- Production environment passing all health checks
+
+**Production Verification Checklist**:
+- [ ] All staging tests pass in production environment
+- [ ] User management procedures tested in production
+- [ ] Monitoring dashboards showing healthy system status
+- [ ] Backup and recovery procedures validated
+- [ ] Operational runbooks complete and tested
+
+---
+
+## 13. Manual Setup Documentation Requirements
+
+Every task must include comprehensive documentation of manual setup procedures to ensure reproducibility and operational success.
+
+### Required Documentation Sections for Each Task:
+
+#### Infrastructure Setup
+- **GCP Project Configuration**: Detailed steps for project creation, service enabling, and IAM setup
+- **Firebase Configuration**: Project creation, database setup, hosting configuration
+- **GitHub Integration**: Repository setup, secrets configuration, CI/CD permissions
+- **Domain and SSL Setup**: Custom domain configuration, SSL certificate management
+
+#### Environment Configuration
+- **Environment Variables**: Complete list with descriptions and example values
+- **Secret Management**: Procedures for creating and managing secrets in GCP Secret Manager
+- **Configuration Files**: Templates and setup instructions for all config files
+- **Database Setup**: Schema creation, seed data deployment, backup configuration
+
+#### Deployment Procedures
+- **Manual Deployment Steps**: Complete checklist for manual deployments when needed
+- **CI/CD Pipeline Configuration**: Setup and troubleshooting procedures
+- **Environment Promotion**: Steps for promoting code from staging to production
+- **Rollback Procedures**: Steps for reverting deployments if issues occur
+
+#### Operational Procedures
+- **User Management**: Admin CLI usage, user creation, permission management
+- **Monitoring Setup**: Dashboard configuration, alert setup, log analysis
+- **Backup and Recovery**: Backup procedures, recovery testing, disaster recovery
+- **Troubleshooting Guides**: Common issues and resolution procedures
+
+### Documentation Deliverables:
+
+#### Task Completion Checklist
+Each task must produce:
+- [ ] Step-by-step setup instructions
+- [ ] Environment-specific configuration procedures
+- [ ] Troubleshooting guide for common issues
+- [ ] Verification steps to confirm successful setup
+- [ ] Manual testing procedures for staging verification
+
+#### Staging Deployment Checklist
+Each milestone must include:
+- [ ] Pre-deployment verification steps
+- [ ] Deployment execution procedures
+- [ ] Post-deployment verification checklist
+- [ ] Manual testing procedures
+- [ ] Issue escalation procedures
+
+#### Production Readiness Checklist
+- [ ] All manual procedures documented and tested
+- [ ] Operational runbooks complete and validated
+- [ ] Emergency procedures documented and tested
+- [ ] User management procedures documented
+- [ ] Monitoring and alerting fully configured
 
 ---
 
@@ -1243,4 +1566,23 @@ graph TD
 - **Mobile Support**: Fully functional on mobile devices
 - **Response Times**: Real-time chat responses within 100ms
 
-This comprehensive roadmap provides the foundation for generating detailed, self-sufficient coding agent prompts that can execute the LLM Chat Platform implementation efficiently and reliably.
+---
+
+## Summary of Restructured Approach
+
+This restructured roadmap prioritizes:
+
+1. **CI/CD-First Development**: Deployment infrastructure established before any feature work
+2. **Incremental Staging Deployment**: Each milestone immediately deployed for verification
+3. **Manual Setup Documentation**: Complete procedures documented for reproducibility
+4. **Continuous Verification**: Functionality tested on staging after each deployment
+5. **Risk Mitigation**: Issues identified early through continuous deployment
+
+This approach enables coding agents to:
+- Verify their work through deployed staging environments
+- Document all manual procedures for human operators
+- Deploy incrementally with reduced risk
+- Maintain continuous visibility into system progress
+- Ensure production readiness through staged verification
+
+The roadmap provides the foundation for generating detailed, self-sufficient coding agent prompts that can execute the LLM Chat Platform implementation with CI/CD-first approach, incremental deployment, and comprehensive operational documentation.
