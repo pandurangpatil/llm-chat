@@ -461,11 +461,61 @@ This section covers the complete CI/CD implementation strategy including GitHub 
 
 ## 13 — Implementation Approach & Incremental Milestones
 
-This section describes milestone-by-milestone plans for the backend and frontend repos. Each milestone is TDD-first: write failing tests (unit / integration), implement code until tests pass, expand Postman/Newman integration tests, and ensure CI runs green.
+**See:** [implementation-roadmap.md](./implementation-roadmap.md)
 
-**Key requirements:**
-1. Backend and frontend are separate repos with documented test startup mechanism
-2. Frontend CI/CD + deployment implemented in first milestone
+This section provides a comprehensive implementation strategy designed for autonomous coding agents with clear task dependencies and parallel execution opportunities. The detailed roadmap breaks down the entire project into atomic, self-sufficient tasks that can be executed independently or in parallel.
+
+### Architecture Overview
+
+The implementation follows a **multi-stream approach** with clear separation of concerns:
+
+- **Stream A**: Backend Foundation & Infrastructure (Parallel execution)
+- **Stream B**: Frontend Foundation & Infrastructure (Parallel execution)
+- **Stream C**: Backend Core Services (Sequential within stream)
+- **Stream D**: Frontend Core Components (Mixed dependencies)
+- **Stream E**: Integration & Testing (Sequential execution)
+- **Stream F**: Deployment & Operations (Parallel execution possible)
+
+### Key Implementation Principles
+
+1. **Atomic Task Design**: Each task is self-contained and completable in 2-4 hours
+2. **TDD-First Development**: All tasks require failing tests written before implementation
+3. **Contract-First APIs**: API specifications defined before development to enable parallel work
+4. **Self-Sufficient Prompts**: Each coding agent prompt contains complete context and specifications
+5. **Clear Dependencies**: Dependency relationships mapped with critical path identification
+
+### Critical Path Duration: ~52 hours
+**Path**: Backend Foundation → User Management → Thread/Message Management → AI Integration → Testing → Deployment
+
+### Parallel Execution Opportunities
+
+**Phase 1 - Foundation** (All tasks can run simultaneously):
+- Backend scaffolding and infrastructure setup
+- Frontend scaffolding and build system setup
+- Security infrastructure implementation
+- Monitoring and logging setup
+
+**Phase 2 - Core Development** (Mixed dependencies):
+- Backend services can be developed sequentially within the stream
+- Frontend components can be developed in parallel with backend API contracts
+- Database layer and model integration can proceed independently
+
+### Milestone Gates
+
+Each implementation phase has clear acceptance criteria and gates:
+- **Foundation Complete**: Both development environments fully functional
+- **Core Backend Complete**: All APIs implemented and tested
+- **Core Frontend Complete**: All UI components functional
+- **Integration Complete**: End-to-end functionality verified
+- **Production Ready**: CI/CD operational and deployment successful
+
+For detailed task breakdowns, dependency mapping, resource requirements, and acceptance criteria, see the comprehensive [Implementation Roadmap](./implementation-roadmap.md).
+
+---
+
+### Legacy Milestone Reference (Detailed Implementation)
+
+The following sections provide the original detailed milestone breakdown for reference. For the current implementation approach, refer to the [Implementation Roadmap](./implementation-roadmap.md).
 
 ### Backend Flow (Backend API + Ollama process inside single container)
 
